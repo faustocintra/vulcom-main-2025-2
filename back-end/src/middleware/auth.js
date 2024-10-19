@@ -30,34 +30,30 @@ export default function(req, res, next) {
       return    // Encerra este middleware
     }
   }
+  token = req.cookies[process.env.AUTH_COOKIE_NAME]
  // ⚠️ Verifique se TOKEN_SECRET existe
-  if (!process.env.TOKEN_SECRET) {
-    console.error('ERRO: TOKEN_SECRET não definido no middleware')
-    return res.status(500).end()
+  if(! token) {
+    // Se não tiver sido encontrado o token no cookie, 
+    // procura pelo token no cabeçalho de autorização
+    const authHeader = req.headers['authorization']
+
+    console.log({authHeader})
+
+    // Se o cabeçalho 'authorization' não existir, retorna
+    // HTTP 403: Forbidden
+    if(! authHeader) {
+      console.error('ERRO DE AUTORIZAÇÃO: falta de cabeçalho')
+      return res.status(403).end()
+    }
+
+    /*
+      O cabeçalho 'autorization' tem o formato "Bearer XXXXXXXXXXXXXXX",
+      onde "XXXXXXXXXXXXXXX" é o token. Portanto, precisamos dividir esse
+      cabeçalho (string) em duas partes, cortando onde está o caractere de
+      espaço e aproveitando apenas a segunda parte (índice 1)
+    */
+    token = authHeader.split(' ')[1]
   }
-
-  /* PROCESSO DE VERIFICAÇÃO DO TOKEN DE AUTORIZAÇÃO */
-  let token
-
-  // Procura pelo token no cabeçalho de autorização
-  const authHeader = req.headers['authorization']
-
-  console.log({authHeader})
-
-  // Se o cabeçalho 'authorization' não existir, retorna
-  // HTTP 403: Forbidden
-  if(! authHeader) {
-    console.error('ERRO DE AUTORIZAÇÃO: falta de cabeçalho')
-    return res.status(403).end()
-  }
-
-  /*
-    O cabeçalho 'autorization' tem o formato "Bearer XXXXXXXXXXXXXXX",
-    onde "XXXXXXXXXXXXXXX" é o token. Portanto, precisamos dividir esse
-    cabeçalho (string) em duas partes, cortando onde está o caractere de
-    espaço e aproveitando apenas a segunda parte (índice 1)
-  */
-  token = authHeader.split(' ')[1]
 
   // Verificação de integridade e validade do token
   jwt.verify(token, process.env.TOKEN_SECRET, (error, user) => {
