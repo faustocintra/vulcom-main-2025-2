@@ -49,50 +49,39 @@ export default function Login() {
   }
 
   async function handleSubmit(event) {
-    event.preventDefault()      // Evita o recarregamento da página
-    showWaiting(true)
-    try {
+  event.preventDefault()
+  showWaiting(true)
+  try {
+    const loginData = { password }
 
-      const loginData = { password }
+    if(email.includes('@')) loginData.email = email
+    else loginData.username = email
 
-      if(email.includes('@')) loginData.email = email
-      // Se o valor da variável email não contiver @, será tratado
-      // como um username
-      else loginData.username = email
+    // ✅ Envia a requisição de login - token será armazenado automaticamente via cookie
+    const response = await myfetch.post('/users/login', loginData)
 
-      // console.log({ loginData })
+    // ✅ O back-end agora retorna { user } (sem token)
+    // Armazena as informações do usuário autenticado
+    setAuthUser(response.user)
 
-      // Envia email e password para o back-end para fazer autenticação
-      const response = await myfetch.post('/users/login', loginData)
-
-      // Armazena o token retornado no localStorage (INSEGURO!)
-      window.localStorage.setItem(
-          import.meta.env.VITE_AUTH_TOKEN_NAME,
-          response.token
-      )
-
-      // Armazena as informações do usuário autenticado
-      setAuthUser(response.user)
-
-      // Mostra a notificação de sucesso e depois vai para a página inicial
-      notify('Autenticação realizada com sucesso', 'success', 1500, () => {
-        // Verifica se existe algum destino para redirecionamento
-        if(redirectLocation) {
-          const dest = redirectLocation
-          setRedirectLocation(null)   // Reseta o destino de redirecionamento
-          navigate(dest, { replace: true })
-        }
-        else navigate('/', { replace: true })
-      })
-    }
-    catch(error) {
-      console.error(error)
-      notify(error.message, 'error')
-    }
-    finally {
-      showWaiting(false)
-    }
+    // Mostra a notificação de sucesso e depois vai para a página inicial
+    notify('Autenticação realizada com sucesso', 'success', 1500, () => {
+      if(redirectLocation) {
+        const dest = redirectLocation
+        setRedirectLocation(null)
+        navigate(dest, { replace: true })
+      }
+      else navigate('/', { replace: true })
+    })
   }
+  catch(error) {
+    console.error(error)
+    notify(error.message, 'error')
+  }
+  finally {
+    showWaiting(false)
+  }
+}
 
   return(
     <>
