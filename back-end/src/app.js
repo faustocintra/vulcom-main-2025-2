@@ -4,20 +4,18 @@ dotenv.config() // Carrega as variáveis de ambiente do arquivo .env
 import express, { json, urlencoded } from 'express'
 import cookieParser from 'cookie-parser'
 import logger from 'morgan'
-
-const app = express()
-
 import cors from 'cors'
 
-app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS.split(','),
-  // credentials: true
-}))
+const app = express()
 
 app.use(logger('dev'))
 app.use(json())
 app.use(urlencoded({ extended: false }))
 app.use(cookieParser())
+app.use(cors({
+  origin: process.env.ALLOWED_ORIGINS.split(','),
+  //credentials: true
+}))
 
 /*********** ROTAS DA API **************/
 
