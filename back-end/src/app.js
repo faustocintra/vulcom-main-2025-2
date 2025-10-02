@@ -7,6 +7,13 @@ import logger from 'morgan'
 
 const app = express()
 
+import cors from 'cors'
+
+app.use(cors({
+    origin: process.env.ALLOWED_ORIGINS.split(','),
+    //credentials:true
+}))
+
 app.use(logger('dev'))
 app.use(json())
 app.use(urlencoded({ extended: false }))
