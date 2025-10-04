@@ -1,12 +1,14 @@
 import prisma from '../database/client.js'
 import jwt from 'jsonwebtoken'
+import bycrypt from 'bcrypt'
 
 const controller = {}     // Objeto vazio
 
 controller.create = async function(req, res) {
   try {
 
-    await prisma.user.create({ data: req.body })
+    const hashedPassword = await bycrypt.hash(req.body.password, 10)
+    await prisma.user.create({ data: { ...req.body, password: hashedPassword } })
 
     // HTTP 201: Created
     res.status(201).end()
@@ -55,10 +57,16 @@ controller.retrieveOne = async function(req, res) {
 
 controller.update = async function(req, res) {
   try {
+    let data = { ...req.body }
+
+    // Se a senha foi enviada, faz o hash antes de atualizar
+    if (req.body.password) {
+      data.password = await bycrypt.hash(req.body.password, 10)
+    }
 
     const result = await prisma.user.update({
       where: { id: Number(req.params.id) },
-      data: req.body
+      data
     })
 
     // Encontrou e atualizou ~> HTTP 204: No Content
