@@ -1,10 +1,20 @@
 import prisma from '../database/client.js'
 import jwt from 'jsonwebtoken'
+import bcrypt from 'bcrypt'
 
 const controller = {}     // Objeto vazio
 
 controller.create = async function(req, res) {
   try {
+
+    // Verifica se existe o campo "password" em "req.body".
+    // Caso positivo, geramos o hash da senha antes de enviá-la
+    // ao BD
+    // (12 na chamada a bcrypt.hash() corresponde ao número de
+    // passos de criptografia utilizados no processo)
+    if(req.body.password) {
+      req.body.password = await bcrypt.hash(req.body.password, 12)
+    }
 
     await prisma.user.create({ data: req.body })
 
@@ -55,6 +65,15 @@ controller.retrieveOne = async function(req, res) {
 
 controller.update = async function(req, res) {
   try {
+
+    // Verifica se existe o campo "password" em "req.body".
+    // Caso positivo, geramos o hash da senha antes de enviá-la
+    // ao BD
+    // (12 na chamada a bcrypt.hash() corresponde ao número de
+    // passos de criptografia utilizados no processo)
+    if(req.body.password) {
+      req.body.password = await bcrypt.hash(req.body.password, 12)
+    }
 
     const result = await prisma.user.update({
       where: { id: Number(req.params.id) },
