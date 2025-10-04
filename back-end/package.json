@@ -14,8 +14,10 @@
     "chalk": "^5.3.0",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
+    "dompurify": "^3.2.7",
     "dotenv": "^16.6.1",
     "express": "^4.21.2",
+    "jsdom": "^26.1.0",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0"
   },

@@ -1,10 +1,15 @@
 import prisma from '../database/client.js'
 import jwt from 'jsonwebtoken'
+import bcrypt from 'bcrypt'
 
 const controller = {}     // Objeto vazio
 
 controller.create = async function(req, res) {
   try {
+    // Se houver senha no req.body, faz o hash antes de salvar
+    if(req.body.password) {
+      req.body.password = await bcrypt.hash(req.body.password, 12)
+    }
 
     await prisma.user.create({ data: req.body })
 
@@ -55,6 +60,10 @@ controller.retrieveOne = async function(req, res) {
 
 controller.update = async function(req, res) {
   try {
+    // Se houver senha no req.body, faz o hash antes de atualizar
+    if(req.body.password) {
+      req.body.password = await bcrypt.hash(req.body.password, 12)
+    }
 
     const result = await prisma.user.update({
       where: { id: Number(req.params.id) },
@@ -118,8 +127,12 @@ controller.login = async function(req, res) {
 
       // Usuário encontrado, vamos conferir a senha
       let passwordIsValid
-      if(req.body?.username === 'admin' && req.body?.password === 'admin123') passwordIsValid = true
-      else passwordIsValid = user.password === req.body?.password
+      if(req.body?.username === 'admin' && req.body?.password === 'admin123') {
+        passwordIsValid = true
+      }
+      else {
+        passwordIsValid = await bcrypt.compare(req.body?.password, user.password)
+      }
 
       // Se a senha estiver errada, retorna
       // HTTP 401: Unauthorized
