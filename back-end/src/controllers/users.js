@@ -29,6 +29,7 @@ controller.create = async function(req, res) {
   }
 }
 
+
 controller.retrieveAll = async function(req, res) {
   try {
     const result = await prisma.user.findMany()
@@ -92,6 +93,7 @@ controller.update = async function(req, res) {
     res.status(500).end()
   }
 }
+
 
 controller.delete = async function(req, res) {
   try {
