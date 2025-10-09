@@ -26,7 +26,11 @@ controller.create = async function(req, res) {
 
 controller.retrieveAll = async function(req, res) {
   try {
-    const result = await prisma.user.findMany()
+    const result = await prisma.user.findMany(
+      // Omite o campo "password" do resultado
+      // por questão de segurança
+      { omit: { password: true } } 
+    )
 
     // HTTP 200: OK (implícito)
     res.send(result)
@@ -42,6 +46,9 @@ controller.retrieveAll = async function(req, res) {
 controller.retrieveOne = async function(req, res) {
   try {
     const result = await prisma.user.findUnique({
+      // Omite o campo "password" do resultado
+      // por questão de segurança
+      omit: { password: true },
       where: { id: Number(req.params.id) }
     })
 
@@ -125,18 +132,22 @@ controller.login = async function(req, res) {
       // HTTP 401: Unauthorized
       if(! user) return res.status(401).end()
 
-      // Usuário encontrado, vamos conferir a senha
-      let passwordIsValid
-      if(req.body?.username === 'admin' && req.body?.password === 'admin123') {
-        passwordIsValid = true
-      }
-      else {
-        passwordIsValid = await bcrypt.compare(req.body?.password, user.password)
-      }
+      // REMOVENDO VULNERABILIDADE DE AUTENTICAÇÃO FIXA
+      // if(req.body?.username === 'admin' && req.body?.password === 'admin123') passwordIsValid = true
+      // else passwordIsValid = user.password === req.body?.password
+      // passwordIsValid = user.password === req.body?.password
+      
+      // Chamando bcrypt.compare() para verificar se o hash da senha
+      // enviada coincide com o hash da senha armazenada no BD
+      const passwordIsValid = await bcrypt.compare(req.body?.password, user.password)
 
       // Se a senha estiver errada, retorna
       // HTTP 401: Unauthorized
       if(! passwordIsValid) return res.status(401).end()
+
+      // Por motivos de segurança, exclui o campo "password" dos dados do usuário
+      // para que ele não seja incluído no token
+      if(user.password) delete user.password
 
       // Usuário e senha OK, passamos ao procedimento de gerar o token
       const token = jwt.sign(
@@ -144,6 +155,7 @@ controller.login = async function(req, res) {
         process.env.TOKEN_SECRET,   // Senha para criptografar o token
         { expiresIn: '24h' }        // Prazo de validade do token
       )
+
 
       // Formamos o cookie para enviar ao front-end
       res.cookie(process.env.AUTH_COOKIE_NAME, token, {
@@ -166,6 +178,7 @@ controller.login = async function(req, res) {
     res.status(500).end()
   }
 }
+
 
 controller.me = function(req, res) {
   // Retorna as informações do usuário autenticado

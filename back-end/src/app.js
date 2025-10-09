@@ -1,4 +1,5 @@
 import dotenv from 'dotenv'
+import auth from './middleware/auth.js' // Middleware de verificação do token de autorização
 dotenv.config() // Carrega as variáveis de ambiente do arquivo .env
 
 import express, { json, urlencoded } from 'express'
@@ -13,6 +14,8 @@ app.use(cors({
   origin: process.env.ALLOWED_ORIGINS.split(','),
   // credentials: true
 }))
+
+app.use(auth)
 
 app.use(logger('dev'))
 app.use(json())
