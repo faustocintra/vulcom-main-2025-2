@@ -17,7 +17,7 @@ controller.create = async function(req, res) {
     res.status(500).end()
   }
 }
-
+// teste
 controller.retrieveAll = async function(req, res) {
   try {
     const result = await prisma.customer.findMany({
