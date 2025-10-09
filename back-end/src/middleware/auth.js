@@ -30,6 +30,11 @@ export default function(req, res, next) {
       return    // Encerra este middleware
     }
   }
+ // ⚠️ Verifique se TOKEN_SECRET existe
+  if (!process.env.TOKEN_SECRET) {
+    console.error('ERRO: TOKEN_SECRET não definido no middleware')
+    return res.status(500).end()
+  }
 
   /* PROCESSO DE VERIFICAÇÃO DO TOKEN DE AUTORIZAÇÃO */
   let token
