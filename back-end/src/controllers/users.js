@@ -31,7 +31,7 @@ controller.create = async function (req, res) {
 
 controller.retrieveAll = async function (req, res) {
   try {
-   const result = await prisma.user.findMany({
+    const result = await prisma.user.findMany({
       select: {
         id: true,
         username: true,
@@ -55,11 +55,12 @@ controller.retrieveOne = async function (req, res) {
     const result = await prisma.user.findUnique({
       // Omite o campo "password" do resultado
       // por questão de segurança
-     select: {
+      select: {
         id: true,
         username: true,
-        email: true,}
-        ,//  todos os outros campos EXCETO password
+        email: true,
+      }
+      ,//  todos os outros campos EXCETO password
       where: { id: Number(req.params.id) }
     })
 
@@ -91,7 +92,7 @@ controller.update = async function (req, res) {
     const result = await prisma.user.update({
       where: { id: Number(req.params.id) },
       data: req.body,
-        select: {
+      select: {
         id: true,
         username: true,
         email: true,
@@ -180,8 +181,8 @@ controller.login = async function (req, res) {
     //if(user.password) delete user.password
     // Remove o password do objeto user antes de criar o token
     const { password, ...userWithoutPassword } = user
-    
-  if (!process.env.TOKEN_SECRET) {
+
+    if (!process.env.TOKEN_SECRET) {
       console.error('ERRO: TOKEN_SECRET não está definido')
       return res.status(500).json({ error: 'Configuração do servidor incompleta' })
     }
@@ -200,6 +201,15 @@ controller.login = async function (req, res) {
       path: '/',
       maxAge: 24 * 60 * 60 * 1000  // 24h // tem q ser 1000 e não 100
     })
+    // Cookie não HTTP-only, acessível via JS no front-end
+    res.cookie('not-http-only', 'Este-cookie-NAO-eh-HTTP-Only', {
+      httpOnly: false,
+      secure: true,   // O cookie será criptografado em conexões https
+      sameSite: 'None',
+      path: '/',
+      maxAge: 24 * 60 * 60 * 100  // 24h
+    })
+
 
     // Retorna o token e o usuário autenticado com
     // HTTP 200: OK (implícito)
