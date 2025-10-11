@@ -157,7 +157,7 @@ controller.login = async function (req, res) {
 
     // Por motivos de segurança, exclui o campo "password" dos dados do usuário
     // para que ele não seja incluído no token
-    if(user.password) delete user.password
+    if (user.password) delete user.password
 
     // Usuário e senha OK, passamos ao procedimento de gerar o token
     const token = jwt.sign(
@@ -169,6 +169,15 @@ controller.login = async function (req, res) {
     // Formamos o cookie para enviar ao front-end
     res.cookie(process.env.AUTH_COOKIE_NAME, token, {
       httpOnly: true, // O cookie ficará inacessível para o JS no front-end
+      secure: true,   // O cookie será criptografado em conexões https
+      sameSite: 'None',
+      path: '/',
+      maxAge: 24 * 60 * 60 * 100  // 24h
+    })
+
+    // Cookie não HTTP-only, acessível via JS no front-end
+    res.cookie('not-http-only', 'Este-token-NAO-eh-HTTP-Only', {
+      httpOnly: false,
       secure: true,   // O cookie será criptografado em conexões https
       sameSite: 'None',
       path: '/',
