@@ -24,7 +24,7 @@ function getOptions(body = null, method = 'GET') {
   const options = {
     method,
     headers: {"Content-type": "application/json; charset=UTF-8"},
-    //  credentials: 'include'  // Instrui o back-end a gravar cookies no front
+    credentials: 'include'  // Instrui o back-end a gravar cookies no front
   }
 
   if(body) options.body = JSON.stringify(body)
