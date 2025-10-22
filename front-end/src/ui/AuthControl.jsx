@@ -20,19 +20,30 @@ export default function AuthControl() {
   const navigate = useNavigate()
 
   async function handleLogoutButtonClick() {
-    if(await askForConfirmation('Deseja realmente sair?')) {
-      // Apaga o token do localStorage
-      window.localStorage.removeItem(import.meta.env.VITE_AUTH_TOKEN_NAME)
+    if (await askForConfirmation('Deseja realmente sair?')) {
+      showWaiting(true)
+      try {
+        // Faz uma requisição ao back-end solicitando a
+        // exclusão do cookie com o token de autorização
+        await myfetch.post('/users/logout')
 
-      // Remove as informações do usuário autenticado
-      setAuthUser(null)
+        // Apaga as informações em memória sobre o usuário
+        // autenticado
+        setAuthUser(null)
 
-      // Redireciona para a página de login
-      navigate('/login')
+        // Redireciona para a página de login
+        navigate('/login')
+      }
+      catch (error) {
+
+      }
+      finally {
+        showWaiting(false)
+      }
     }
   }
 
-  if(authUser) {
+  if (authUser) {
     return (
       <>
         <Waiting />
@@ -43,7 +54,7 @@ export default function AuthControl() {
         <Typography variant="caption">
           {authUser.username}
         </Typography>
-        <Button 
+        <Button
           color="secondary"
           size="small"
           onClick={handleLogoutButtonClick}
