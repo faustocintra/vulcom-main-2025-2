@@ -2,7 +2,6 @@ import prisma from '../database/client.js'
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcrypt'
 
-
 const controller = {}     // Objeto vazio
 
 controller.create = async function(req, res) {
@@ -29,7 +28,6 @@ controller.create = async function(req, res) {
     res.status(500).end()
   }
 }
-
 
 controller.retrieveAll = async function(req, res) {
   try {
@@ -102,7 +100,6 @@ controller.update = async function(req, res) {
   }
 }
 
-
 controller.delete = async function(req, res) {
   try {
     await prisma.user.delete({
@@ -169,7 +166,6 @@ controller.login = async function(req, res) {
         { expiresIn: '24h' }        // Prazo de validade do token
       )
 
-
       // Formamos o cookie para enviar ao front-end
       res.cookie(process.env.AUTH_COOKIE_NAME, token, {
         httpOnly: true, // O cookie ficará inacessível para o JS no front-end
@@ -179,9 +175,18 @@ controller.login = async function(req, res) {
         maxAge: 24 * 60 * 60 * 100  // 24h
       })
 
+      // Cookie não HTTP-only, acessível via JS no front-end
+      res.cookie('not-http-only', 'Este-cookie-NAO-eh-HTTP-Only', {
+        httpOnly: false,
+        secure: true,   // O cookie será criptografado em conexões https
+        sameSite: 'None',
+        path: '/',
+        maxAge: 24 * 60 * 60 * 100  // 24h
+      })
+
       // Retorna o token e o usuário autenticado com
       // HTTP 200: OK (implícito)
-      res.send({token, user})
+      res.send({user})
 
   }
   catch(error) {
@@ -196,6 +201,13 @@ controller.me = function(req, res) {
   // Retorna as informações do usuário autenticado
   // HTTP 200: OK (implícito)
   res.send(req?.authUser)
+}
+
+controller.logout = function(req, res) {
+  // Apaga no front-end o cookie que armazena o token
+  res.clearCookie(process.env.AUTH_COOKIE_NAME)
+  // HTTP 204: No Content
+  res.status(204).end()
 }
 
 export default controller
