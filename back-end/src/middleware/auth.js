@@ -34,6 +34,32 @@ export default function(req, res, next) {
   /* PROCESSO DE VERIFICAÇÃO DO TOKEN DE AUTORIZAÇÃO */
   let token
 
+  // Primeiramente, procura pelo token de autorização em um cookie
+  token = req.cookies[process.env.AUTH_COOKIE_NAME]
+
+  if(! token) {
+    // Se não tiver sido encontrado o token no cookie, 
+    // procura pelo token no cabeçalho de autorização
+    const authHeader = req.headers['authorization']
+
+    console.log({authHeader})
+
+    // Se o cabeçalho 'authorization' não existir, retorna
+    // HTTP 403: Forbidden
+    if(! authHeader) {
+      console.error('ERRO DE AUTORIZAÇÃO: falta de cabeçalho')
+      return res.status(403).end()
+    }
+
+    /*
+      O cabeçalho 'autorization' tem o formato "Bearer XXXXXXXXXXXXXXX",
+      onde "XXXXXXXXXXXXXXX" é o token. Portanto, precisamos dividir esse
+      cabeçalho (string) em duas partes, cortando onde está o caractere de
+      espaço e aproveitando apenas a segunda parte (índice 1)
+    */
+    token = authHeader.split(' ')[1]
+  }
+
   // Procura pelo token no cabeçalho de autorização
   const authHeader = req.headers['authorization']
 
