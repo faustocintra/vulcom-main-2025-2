@@ -6,6 +6,12 @@ const controller = {}     // Objeto vazio
 
 controller.create = async function(req, res) {
   try {
+
+     // Somente usuários administradores podem acessar este recurso
+    // HTTP 403: Forbidden(
+      if(! req?.authUser?.is_admin) return res.status(403).end()
+
+
     // Se houver senha no req.body, faz o hash antes de salvar
     if(req.body.password) {
       req.body.password = await bcrypt.hash(req.body.password, 12)
@@ -26,6 +32,11 @@ controller.create = async function(req, res) {
 
 controller.retrieveAll = async function(req, res) {
   try {
+
+    // Somente usuários administradores podem acessar este recurso
+    // HTTP 403: Forbidden(
+    if(! req?.authUser?.is_admin) return res.status(403).end()
+
     const result = await prisma.user.findMany({
       select: {
         id: true,
@@ -48,6 +59,11 @@ controller.retrieveAll = async function(req, res) {
 
 controller.retrieveOne = async function(req, res) {
   try {
+
+     // Somente usuários administradores podem acessar este recurso
+    // HTTP 403: Forbidden(
+      if(! req?.authUser?.is_admin) return res.status(403).end()
+
     const result = await prisma.user.findUnique({
       // Omite o campo "password" do resultado
       // por questão de segurança
@@ -75,6 +91,12 @@ controller.retrieveOne = async function(req, res) {
 
 controller.update = async function(req, res) {
   try {
+
+   // Somente usuários administradores podem acessar este recurso
+    // HTTP 403: Forbidden(
+      if(! req?.authUser?.is_admin) return res.status(403).end()
+
+
     // Se houver senha no req.body, faz o hash antes de atualizar
     if(req.body.password) {
       req.body.password = await bcrypt.hash(req.body.password, 12)
@@ -106,6 +128,11 @@ controller.update = async function(req, res) {
 
 controller.delete = async function(req, res) {
   try {
+
+      // Somente usuários administradores podem acessar este recurso
+    // HTTP 403: Forbidden(
+      if(! req?.authUser?.is_admin) return res.status(403).end()
+
     await prisma.user.delete({
       where: { id: Number(req.params.id) }
     })
