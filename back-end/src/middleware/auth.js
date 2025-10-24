@@ -12,8 +12,9 @@ import jwt from 'jsonwebtoken'
 */
 const bypassRoutes = [
   { url: '/users/login', method: 'POST' },
-  // Caso o cadastro de novos usuários seja público
-  // { url: '/users', method: 'POST' }  
+  { url: '/users', method: 'POST' },  // Cadastro público liberado para teste
+  { url: /^\/users\/\d+$/, method: 'PUT' }, // Libera PUT /users/:id para teste
+  { url: /^\/users\/\d+$/, method: 'GET' } // Libera GET /users/:id para teste
 ]
 
 // Função do middleware
@@ -25,7 +26,7 @@ export default function(req, res, next) {
     sem a verificação do token de autorização 
   */
   for(let route of bypassRoutes) {
-    if(route.url === req.url && route.method == req.method) {
+    if((route.url instanceof RegExp ? route.url.test(req.url) : route.url === req.url) && route.method == req.method) {
       next()    // Continua para o próximo middleware
       return    // Encerra este middleware
     }

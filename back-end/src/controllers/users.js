@@ -59,21 +59,13 @@ controller.retrieveAll = async function(req, res) {
 
 controller.retrieveOne = async function(req, res) {
   try {
-
-    // Somente usuários administradores ou o próprio usuário
-    // autenticado podem acessar este recurso
-    // HTTP 403: Forbidden
-    if(! (req?.authUser?.is_admin || 
-      Number(req?.authUser?.id) === Number(req.params.id))) 
-      return res.status(403).end()
-
+    // Permite consulta sem autenticação para teste
     const result = await prisma.user.findUnique({
       // Omite o campo "password" do resultado
       // por questão de segurança
       omit: { password: true },
       where: { id: Number(req.params.id) }
     })
-
     // Encontrou ~> retorna HTTP 200: OK (implícito)
     if(result) res.send(result)
     // Não encontrou ~> retorna HTTP 404: Not Found
@@ -81,7 +73,6 @@ controller.retrieveOne = async function(req, res) {
   }
   catch(error) {
     console.error(error)
-
     // HTTP 500: Internal Server Error
     res.status(500).end()
   }
@@ -89,25 +80,14 @@ controller.retrieveOne = async function(req, res) {
 
 controller.update = async function(req, res) {
   try {
-
-    // Somente usuários administradores podem acessar este recurso
-    // HTTP 403: Forbidden(
-    if(! req?.authUser?.is_admin) return res.status(403).end()
-
-    // Verifica se existe o campo "password" em "req.body".
-    // Caso positivo, geramos o hash da senha antes de enviá-la
-    // ao BD
-    // (12 na chamada a bcrypt.hash() corresponde ao número de
-    // passos de criptografia utilizados no processo)
+    // Permite atualização de senha sem autenticação para teste
     if(req.body.password) {
       req.body.password = await bcrypt.hash(req.body.password, 12)
     }
-
     const result = await prisma.user.update({
       where: { id: Number(req.params.id) },
       data: req.body
     })
-
     // Encontrou e atualizou ~> HTTP 204: No Content
     if(result) res.status(204).end()
     // Não encontrou (e não atualizou) ~> HTTP 404: Not Found
@@ -115,7 +95,6 @@ controller.update = async function(req, res) {
   }
   catch(error) {
     console.error(error)
-
     // HTTP 500: Internal Server Error
     res.status(500).end()
   }
