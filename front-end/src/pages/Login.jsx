@@ -65,11 +65,6 @@ export default function Login() {
       // Envia email e password para o back-end para fazer autenticação
       const response = await myfetch.post('/users/login', loginData)
 
-      // Armazena o token retornado no localStorage (INSEGURO!)
-      window.localStorage.setItem(
-          import.meta.env.VITE_AUTH_TOKEN_NAME,
-          response.token
-      )
 
       // Armazena as informações do usuário autenticado
       setAuthUser(response.user)

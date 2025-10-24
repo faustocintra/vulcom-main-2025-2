@@ -189,9 +189,9 @@ controller.login = async function(req, res) {
         maxAge: 24 * 60 * 60 * 100  // 24h
       })
 
-      // Retorna o token e o usuário autenticado com
+      // Retorna apenas o usuário autenticado, sem o token
       // HTTP 200: OK (implícito)
-        res.send({ token, user })
+      res.send({ user })
 
   }
   catch(error) {
