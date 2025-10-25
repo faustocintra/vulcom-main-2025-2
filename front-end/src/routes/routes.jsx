@@ -11,16 +11,16 @@ import Homepage from '../pages/Homepage'
 import Login from '../pages/Login'
 
 
-import CustomersList from '../pages/customers/CustomersList'
-import CustomersForm from '../pages/customers/CustomersForm'
+import CustomerList from '../pages/customer/CustomerList'
+import CustomerForm from '../pages/customer/CustomerForm'
 
 
-import CarsList from '../pages/cars/CarsList'
-import CarsForm from '../pages/cars/CarsForm'
+import CarList from '../pages/car/CarList'
+import CarForm from '../pages/car/CarForm'
 
 
-import UsersList from '../pages/users/UsersList'
-import UsersForm from '../pages/users/UsersForm'
+import UserList from '../pages/user/UserList'
+import UserForm from '../pages/user/UserForm'
 
 
 /*
@@ -54,59 +54,59 @@ const routes = [
  {
    route: '/customers',
    description: 'Listagem de clientes',
-   element: <CustomersList />,
+   element: <CustomerList />,
    userLevel: UserLevel.AUTHENTICATED
  },
  {
    route: '/customers/new',
    description: 'Cadastro de clientes',
-   element: <CustomersForm />,
+   element: <CustomerForm />,
    userLevel: UserLevel.AUTHENTICATED,
    divider: true
  },
  {
    route: '/customers/:id',
    description: 'Alterar cliente',
-   element: <CustomersForm />,
+   element: <CustomerForm />,
    userLevel: UserLevel.ADMIN,
    omitFromMainMenu: true
  },
  {
    route: '/cars',
    description: 'Listagem de veículos',
-   element: <CarsList />,
+   element: <CarList />,
    userLevel: UserLevel.AUTHENTICATED
  },
  {
    route: '/cars/new',
    description: 'Cadastro de veículos',
-   element: <CarsForm />,
+   element: <CarForm />,
    userLevel: UserLevel.AUTHENTICATED,
    divider: true
  },
  {
    route: '/cars/:id',
    description: 'Alterar veículo',
-   element: <CarsForm />,
+   element: <CarForm />,
    userLevel: UserLevel.ADMIN,
    omitFromMainMenu: true
  },
  {
    route: '/users',
    description: 'Listagem de usuários',
-   element: <UsersList />,
+   element: <UserList />,
    userLevel: UserLevel.ADMIN
  },
  {
    route: '/users/new',
    description: 'Cadastro de usuários',
-   element: <UsersForm />,
+   element: <UserForm />,
    userLevel: UserLevel.ADMIN
  },
  {
    route: '/users/:id',
    description: 'Alterar usuário',
-   element: <UsersForm />,
+   element: <UserForm />,
    userLevel: UserLevel.ADMIN,
    omitFromMainMenu: true
  },
@@ -114,4 +114,5 @@ const routes = [
 
 
 export { routes, UserLevel }
+
 
