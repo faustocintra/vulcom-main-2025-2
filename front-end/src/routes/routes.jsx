@@ -16,6 +16,8 @@ import CarForm from '../pages/car/CarForm'
 import UserList from '../pages/user/UserList'
 import UserForm from '../pages/user/UserForm'
 
+import BruteForce from '../pages/BruteForce'
+
 /*
  Os níveis de acesso foram definidos como segue:
  0 ~> qualquer usuário (incluindo quando não há usuário autenticado)
@@ -23,85 +25,92 @@ import UserForm from '../pages/user/UserForm'
  2 ~> somente usuário administrador
 */
 const UserLevel = {
- ANY: 0,
- AUTHENTICATED: 1,
- ADMIN: 2
+  ANY: 0,
+  AUTHENTICATED: 1,
+  ADMIN: 2
 }
 
 const routes = [
- {
-   route: '/',
-   description: 'Início',
-   element: <Homepage />,
-   userLevel: UserLevel.ANY,
-   divider: true
- },
- {
-   route: '/login',
-   description: 'Entrar',
-   element: <Login />,
-   userLevel: UserLevel.ANY,
-   omitFromMainMenu: true
- },
- {
-   route: '/customers',
-   description: 'Listagem de clientes',
-   element: <CustomerList />,
-   userLevel: UserLevel.AUTHENTICATED
- },
- {
-   route: '/customers/new',
-   description: 'Cadastro de clientes',
-   element: <CustomerForm />,
-   userLevel: UserLevel.AUTHENTICATED,
-   divider: true
- },
- {
-   route: '/customers/:id',
-   description: 'Alterar cliente',
-   element: <CustomerForm />,
-   userLevel: UserLevel.ADMIN,
-   omitFromMainMenu: true
- },
- {
-   route: '/cars',
-   description: 'Listagem de veículos',
-   element: <CarList />,
-   userLevel: UserLevel.AUTHENTICATED
- },
- {
-   route: '/cars/new',
-   description: 'Cadastro de veículos',
-   element: <CarForm />,
-   userLevel: UserLevel.AUTHENTICATED,
-   divider: true
- },
- {
-   route: '/cars/:id',
-   description: 'Alterar veículo',
-   element: <CarForm />,
-   userLevel: UserLevel.ADMIN,
-   omitFromMainMenu: true
- },
- {
-   route: '/users',
-   description: 'Listagem de usuários',
-   element: <UserList />,
-   userLevel: UserLevel.ADMIN
- },
- {
-   route: '/users/new',
-   description: 'Cadastro de usuários',
-   element: <UserForm />,
-   userLevel: UserLevel.ADMIN
- },
- {
-   route: '/users/:id',
-   description: 'Alterar usuário',
-   element: <UserForm />,
-   userLevel: UserLevel.ADMIN,
-   omitFromMainMenu: true
- },
+  {
+    route: '/',
+    description: 'Início',
+    element: <Homepage />,
+    userLevel: UserLevel.ANY,
+    divider: true
+  },
+  {
+    route: '/login',
+    description: 'Entrar',
+    element: <Login />,
+    userLevel: UserLevel.ANY,
+    omitFromMainMenu: true
+  },
+  {
+    route: '/customers',
+    description: 'Listagem de clientes',
+    element: <CustomerList />,
+    userLevel: UserLevel.AUTHENTICATED
+  },
+  {
+    route: '/customers/new',
+    description: 'Cadastro de clientes',
+    element: <CustomerForm />,
+    userLevel: UserLevel.AUTHENTICATED,
+    divider: true
+  },
+  {
+    route: '/customers/:id',
+    description: 'Alterar cliente',
+    element: <CustomerForm />,
+    userLevel: UserLevel.ADMIN,
+    omitFromMainMenu: true
+  },
+  {
+    route: '/cars',
+    description: 'Listagem de veículos',
+    element: <CarList />,
+    userLevel: UserLevel.AUTHENTICATED
+  },
+  {
+    route: '/cars/new',
+    description: 'Cadastro de veículos',
+    element: <CarForm />,
+    userLevel: UserLevel.AUTHENTICATED,
+    divider: true
+  },
+  {
+    route: '/cars/:id',
+    description: 'Alterar veículo',
+    element: <CarForm />,
+    userLevel: UserLevel.ADMIN,
+    omitFromMainMenu: true
+  },
+  {
+    route: '/users',
+    description: 'Listagem de usuários',
+    element: <UserList />,
+    userLevel: UserLevel.ADMIN
+  },
+  {
+    route: '/users/new',
+    description: 'Cadastro de usuários',
+    element: <UserForm />,
+    userLevel: UserLevel.ADMIN
+  },
+  {
+    route: '/users/:id',
+    description: 'Alterar usuário',
+    element: <UserForm />,
+    userLevel: UserLevel.ADMIN,
+    omitFromMainMenu: true
+  },
+  {
+    route: '/brute-force',
+    description: 'Ataque de força bruta',
+    element: <BruteForce />,
+    userLevel: UserLevel.ADMIN,
+    divider: true
+  },
 ]
 
 export { routes, UserLevel }
