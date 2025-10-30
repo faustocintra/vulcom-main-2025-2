@@ -90,10 +90,6 @@ controller.retrieveOne = async function(req, res) {
 controller.update = async function(req, res) {
   try {
 
-    // Somente usuários administradores podem acessar este recurso
-    // HTTP 403: Forbidden(
-    if(! req?.authUser?.is_admin) return res.status(403).end()
-
     // Verifica se existe o campo "password" em "req.body".
     // Caso positivo, geramos o hash da senha antes de enviá-la
     // ao BD

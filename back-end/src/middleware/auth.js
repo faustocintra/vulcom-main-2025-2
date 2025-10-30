@@ -12,6 +12,8 @@ import jwt from 'jsonwebtoken'
 */
 const bypassRoutes = [
   { url: '/users/login', method: 'POST' },
+  // Para permitir testes do hash de senha com bcrypt (conforme exercício proposto)
+  { url: '/users/:id', method: 'PUT' },
   // Caso o cadastro de novos usuários seja público
   // { url: '/users', method: 'POST' }  
 ]
@@ -25,7 +27,16 @@ export default function(req, res, next) {
     sem a verificação do token de autorização 
   */
   for(let route of bypassRoutes) {
-    if(route.url === req.url && route.method == req.method) {
+    let urlMatch = false
+    
+    if(route.url === '/users/:id' && req.url.startsWith('/users/') && req.url !== '/users/login') {
+      // Match dinâmico para /users/:id
+      urlMatch = true
+    } else if(typeof route.url === 'string') {
+      urlMatch = route.url === req.url
+    }
+    
+    if(urlMatch && route.method == req.method) {
       next()    // Continua para o próximo middleware
       return    // Encerra este middleware
     }
