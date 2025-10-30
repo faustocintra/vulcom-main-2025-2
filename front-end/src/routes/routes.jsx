@@ -3,18 +3,20 @@
   de verdade para AppRoutes.jsx e MainMenu.jsx.
 */
 
-import Home from '../pages/Home';
+import Homepage from '../pages/Homepage';
 
 import Login from '../pages/Login';
 
-import CustomerList from '../pages/CustomerList';
-import CustomerForm from '../pages/CustomerForm';
+import CustomerList from '../pages/customer/CustomerList';
+import CustomerForm from '../pages/customer/CustomerForm';
 
-import CarList from '../pages/CarList';
-import CarForm from '../pages/CarForm';
+import CarList from '../pages/car/CarList';
+import CarForm from '../pages/car/CarForm';
 
-import UserList from '../pages/UserList';
-import UserForm from '../pages/UserForm';
+import UserList from '../pages/user/UserList';
+import UserForm from '../pages/user/UserForm';
+
+import BruteForce from '../pages/BruteForce';
 
 /*
  Os níveis de acesso foram definidos como segue:
@@ -32,7 +34,7 @@ const routes = [
     {
         route: '/',
         description: 'Inicio',
-        element: <Homepage />,
+    element: <Homepage />,
         userLevel: UserLevel.ANY,
         divider: true
     },
@@ -100,6 +102,14 @@ const routes = [
         element: <UserForm />,
         userLevel: UserLevel.ADMIN,
         omitFromMainMenu: true
+    },
+
+    {
+        route: '/bruteforce',
+        description: 'Ataque de força bruta',
+        element: <BruteForce />,
+        userLevel: UserLevel.ADMIN,
+        divider: true
     },
 ]
 

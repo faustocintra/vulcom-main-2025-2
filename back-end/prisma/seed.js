@@ -19,30 +19,36 @@ const colors = [
   'VERMELHO'
 ]
 
+import bcrypt from 'bcrypt';
+
 async function main() {
+  // Limpa todos os usuários antes de popular
+  await prisma.user.deleteMany({});
   // Criar usuários
   const users = [];
   const numberOfUsers = 4;
 
-  // Criação do usuário admin
+  // Criação do usuário admin com senha criptografada
+  const adminPassword = await bcrypt.hash('Vulcom@DSM', 12);
   const user = await prisma.user.create({
     data: {
       fullname: 'Administrador do Sistema',
       username: 'admin',
       email: 'admin@vulcom.com.br',
-      password: 'Vulcom@DSM',
+      password: adminPassword,
       is_admin: true
     }
   })
   users.push(user)
-  
+
   for (let i = 0; i < numberOfUsers; i++) {
+    const userPassword = await bcrypt.hash('senha123', 12);
     const user = await prisma.user.create({
       data: {
         fullname: faker.person.fullName(),
         username: faker.internet.username(),
         email: faker.internet.email(),
-        password: 'senha123',
+        password: userPassword,
         is_admin: i === 0,
       },
     });
