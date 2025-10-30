@@ -276,6 +276,7 @@ controller.me = async function(req, res) {
       // HTTP 404: Not Found
       res.status(404).end()
     }
+  
   }
   catch (error) {
     console.error(error)

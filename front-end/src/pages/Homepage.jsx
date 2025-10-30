@@ -1,4 +1,3 @@
- 
 import React from 'react'
 import Typography from '@mui/material/Typography'
 
@@ -28,10 +27,10 @@ export default function Homepage() {
 
       <Typography variant="h6">
         Exposição de valores do <em>local storage</em>
-        <Typography variant="caption" style={{ fontFamily: 'monospace '}}>
+        <Typography variant="caption" style={{ fontFamily: 'monospace' }}>
           {
-            ls.map(kv => (
-              <p>{Object.keys(kv)[0]} =&gt; {kv[Object.keys(kv)[0]]}</p>
+            ls.map((kv, index) => (
+              <p key={index}>{Object.keys(kv)[0]} =&gt; {kv[Object.keys(kv)[0]]}</p>
             ))
           }
         </Typography>
@@ -39,13 +38,10 @@ export default function Homepage() {
 
       <Typography variant="h6">
         Exposição de <em>cookies</em>
-        <Typography variant="caption" style={{ fontFamily: 'monospace '}}>
+        <Typography variant="caption" style={{ fontFamily: 'monospace' }}>
           <p>{ document.cookie }</p>  
         </Typography>
       </Typography>
-
-      
     </>
   )
 }
-
