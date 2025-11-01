@@ -2,7 +2,7 @@
   Este middleware intercepta todas as rotas e verifica
   se um token de autorização foi enviado junto com a
   requisição
-*/
+*/ 
 import jwt from 'jsonwebtoken'
 
 /*
