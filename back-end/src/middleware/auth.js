@@ -12,7 +12,7 @@ import jwt from 'jsonwebtoken'
 */
 const bypassRoutes = [
   { url: '/users/login', method: 'POST' },
-  // Caso o cadastro de novos usuários seja público
+  // Caso o cadastro de novos usuários seja públicos
   // { url: '/users', method: 'POST' }  
 ]
 
@@ -30,8 +30,11 @@ export default function(req, res, next) {
       return    // Encerra este middleware
     }
   }
-  token = req.cookies[process.env.AUTH_COOKIE_NAME]
- // ⚠️ Verifique se TOKEN_SECRET existe
+
+  // 🔧 CORREÇÃO: Declarar a variável token com let
+  let token = req.cookies[process.env.AUTH_COOKIE_NAME]
+
+  // ⚠️ Verifique se TOKEN_SECRET existe
   if(! token) {
     // Se não tiver sido encontrado o token no cookie, 
     // procura pelo token no cabeçalho de autorização
@@ -52,7 +55,7 @@ export default function(req, res, next) {
       cabeçalho (string) em duas partes, cortando onde está o caractere de
       espaço e aproveitando apenas a segunda parte (índice 1)
     */
-    token = authHeader.split(' ')[1]
+    token = authHeader.split(' ')[1] // 🔧 Agora token já está declarado
   }
 
   // Verificação de integridade e validade do token
