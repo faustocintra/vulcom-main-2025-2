@@ -9,7 +9,7 @@ import useWaiting from './useWaiting'
 import useConfirmDialog from './useConfirmDialog'
 import useNotification from './useNotification'
 import myfetch from '../lib/myfetch'
-
+ 
 export default function AuthControl() {
   const { authUser, setAuthUser } = React.useContext(AuthUserContext)
 
