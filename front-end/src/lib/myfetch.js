@@ -1,4 +1,4 @@
-/**
+/** 
  * Biblioteca 'myfetch'
  * 
  * Facilita o uso da API nativa fetch() do JavaScript
