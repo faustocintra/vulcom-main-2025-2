@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken'
 import bcrypt from 'bcrypt'
 
 const controller = {}     // Objeto vazio
-
+ 
 controller.create = async function (req, res) {
   try {
 
