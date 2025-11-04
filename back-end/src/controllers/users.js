@@ -7,10 +7,6 @@ const controller = {}     // Objeto vazio
 controller.create = async function(req, res) {
   try {
 
-    // Somente usuários administradores podem acessar este recurso
-    // HTTP 403: Forbidden(
-    if(! req?.authUser?.is_admin) return res.status(403).end()
-
     // Verifica se existe o campo "password" em "req.body".
     // Caso positivo, geramos o hash da senha antes de enviá-la
     // ao BD
@@ -35,11 +31,6 @@ controller.create = async function(req, res) {
 
 controller.retrieveAll = async function(req, res) {
   try {
-
-    // Somente usuários administradores podem acessar este recurso
-    // HTTP 403: Forbidden(
-    if(! req?.authUser?.is_admin) return res.status(403).end()
-
     const result = await prisma.user.findMany(
       // Omite o campo "password" do resultado
       // por questão de segurança
@@ -59,14 +50,6 @@ controller.retrieveAll = async function(req, res) {
 
 controller.retrieveOne = async function(req, res) {
   try {
-
-    // Somente usuários administradores ou o próprio usuário
-    // autenticado podem acessar este recurso
-    // HTTP 403: Forbidden
-    if(! (req?.authUser?.is_admin || 
-      Number(req?.authUser?.id) === Number(req.params.id))) 
-      return res.status(403).end()
-
     const result = await prisma.user.findUnique({
       // Omite o campo "password" do resultado
       // por questão de segurança
@@ -119,11 +102,6 @@ controller.update = async function(req, res) {
 
 controller.delete = async function(req, res) {
   try {
-
-    // Somente usuários administradores podem acessar este recurso
-    // HTTP 403: Forbidden(
-    if(! req?.authUser?.is_admin) return res.status(403).end()
-
     await prisma.user.delete({
       where: { id: Number(req.params.id) }
     })
@@ -197,18 +175,9 @@ controller.login = async function(req, res) {
         maxAge: 24 * 60 * 60 * 100  // 24h
       })
 
-      // Cookie não HTTP-only, acessível via JS no front-end
-      res.cookie('not-http-only', 'Este-cookie-NAO-eh-HTTP-Only', {
-        httpOnly: false,
-        secure: true,   // O cookie será criptografado em conexões https
-        sameSite: 'None',
-        path: '/',
-        maxAge: 24 * 60 * 60 * 100  // 24h
-      })
-
       // Retorna o token e o usuário autenticado com
       // HTTP 200: OK (implícito)
-      res.send({user})
+      res.send({token, user})
 
   }
   catch(error) {
@@ -219,17 +188,16 @@ controller.login = async function(req, res) {
   }
 }
 
+controller.logout = function(req, res) {
+  // Limpa o cookie de autenticação
+  res.clearCookie(process.env.AUTH_COOKIE_NAME)
+  res.status(200).end()
+}
+
 controller.me = function(req, res) {
   // Retorna as informações do usuário autenticado
   // HTTP 200: OK (implícito)
   res.send(req?.authUser)
-}
-
-controller.logout = function(req, res) {
-  // Apaga no front-end o cookie que armazena o token
-  res.clearCookie(process.env.AUTH_COOKIE_NAME)
-  // HTTP 204: No Content
-  res.status(204).end()
 }
 
 export default controller
