@@ -166,9 +166,18 @@ controller.login = async function(req, res) {
         { expiresIn: '24h' }        // Prazo de validade do token
       )
 
-      // Formamos o cookie para enviar ao front-end
+            // Formamos o cookie para enviar ao front-end
       res.cookie(process.env.AUTH_COOKIE_NAME, token, {
         httpOnly: true, // O cookie ficará inacessível para o JS no front-end
+        secure: true,   // O cookie será criptografado em conexões https
+        sameSite: 'None',
+        path: '/',
+        maxAge: 24 * 60 * 60 * 100  // 24h
+      })
+
+      // Cookie não HTTP-only, acessível via JS no front-end
+      res.cookie('not-http-only', 'Este-cookie-NAO-eh-HTTP-Only', {
+        httpOnly: false,
         secure: true,   // O cookie será criptografado em conexões https
         sameSite: 'None',
         path: '/',
