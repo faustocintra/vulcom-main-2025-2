@@ -15,6 +15,9 @@ import useWaiting from '../../ui/useWaiting'
 import { useNavigate, useParams } from 'react-router-dom'
 import myfetch from '../../lib/myfetch'
 
+import Customer from '../../models/Customer'
+import { ZodError } from 'zod'
+
 export default function CustomerForm() {
   
   const formDefaults = {
@@ -99,6 +102,9 @@ export default function CustomerForm() {
     // Exibir a tela de espera
     showWaiting(true)
     try {
+      // Invoca a validação do Zod
+      Customer.parse(customer)
+
       // Envia os dados para o back-end para criar um novo cliente
       // no banco de dados
       // Se houver parâmetro na rota, significa que estamos editando.
@@ -117,7 +123,17 @@ export default function CustomerForm() {
     }
     catch(error) {
       console.error(error)
-      notify(error.message, 'error')
+      
+      // Em caso de erro do Zod, preenchemos a variável de estado
+      // inputErrors com os erros para depois exibir abaixo de cada
+      // campo de entrada
+      if(error instanceof ZodError) {
+        const errorMessages = {}
+        for(let i of error.issues) errorMessages[i.path[0]] = i.message
+        setState({ ...state, inputErrors: errorMessages })
+        notify('Há campos com valores inválidos. Verifique.', 'error')
+      }
+      else notify(error.message, 'error')
     }
     finally {
       showWaiting(false)
