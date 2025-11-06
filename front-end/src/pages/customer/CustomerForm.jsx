@@ -14,6 +14,9 @@ import useNotification from '../../ui/useNotification'
 import useWaiting from '../../ui/useWaiting'
 import { useNavigate, useParams } from 'react-router-dom'
 import myfetch from '../../lib/myfetch'
+import Customer from '../../models/customer.js'
+import { ZodError } from "zod"
+
 
 export default function CustomerForm() {
   
@@ -96,28 +99,29 @@ export default function CustomerForm() {
 
   async function handleFormSubmit(e) {
     e.preventDefault()    // Evita o recarregamento da página
-    // Exibir a tela de espera
     showWaiting(true)
     try {
-      // Envia os dados para o back-end para criar um novo cliente
-      // no banco de dados
-      // Se houver parâmetro na rota, significa que estamos editando.
-      // Portanto, precisamos enviar os dados ao back-end com o verbo PUT
+      // Invoca a validação do Zod
+      Customer.parse(customer)
+
+      // Envia os dados para o back-end para criar ou editar cliente
       if(params.id) await myfetch.put(`/customers/${params.id}`, customer)
-      
-      // Senão, os dados serão enviados com o método POST para a criação de
-      // um novo cliente
       else await myfetch.post('/customers', customer)
 
-      // Deu certo, vamos exibir a mensagem de feedback que, quando fechada,
-      // vai nos mandar de volta para a listagem de clientes
       notify('Item salvo com sucesso.', 'success', 4000, () => {
         navigate('..', { relative: 'path', replace: true })
       })
     }
     catch(error) {
       console.error(error)
-      notify(error.message, 'error')
+      // Em caso de erro do Zod, preenche inputErrors para exibir abaixo dos campos
+      if(error instanceof ZodError) {
+        const errorMessages = {}
+        for(let i of error.issues) errorMessages[i.path[0]] = i.message
+        setState({ ...state, inputErrors: errorMessages })
+        notify('Há campos com valores inválidos. Verifique.', 'error')
+      }
+      else notify(error.message, 'error')
     }
     finally {
       showWaiting(false)

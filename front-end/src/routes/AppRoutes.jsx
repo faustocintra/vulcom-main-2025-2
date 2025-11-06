@@ -1,5 +1,6 @@
 import AuthGuard from './AuthGuard'
 import { routes, UserLevel } from './routes'
+import { Routes, Route } from 'react-router-dom'
 
 export default function AppRoutes() {
   return (

@@ -1,20 +1,25 @@
 import prisma from '../database/client.js'
+import Customer from '../../models/Customer.js'
+import { ZodError } from 'zod'
 
 const controller = {}     // Objeto vazio
 
 controller.create = async function(req, res) {
   try {
-
+    // Garante conversão da data
+    if(req.body.birth_date) req.body.birth_date = new Date(req.body.birth_date)
+    // Validação Zod
+    Customer.parse(req.body)
     await prisma.customer.create({ data: req.body })
-
     // HTTP 201: Created
     res.status(201).end()
   }
   catch(error) {
     console.error(error)
-
-    // HTTP 500: Internal Server Error
-    res.status(500).end()
+    // Erro de validação Zod
+    if(error instanceof ZodError) res.status(422).send(error.issues)
+    // Outros erros
+    else res.status(500).end()
   }
 }
 
@@ -64,11 +69,12 @@ controller.retrieveOne = async function(req, res) {
 
 controller.update = async function(req, res) {
   try {
+    if(req.body.birth_date) req.body.birth_date = new Date(req.body.birth_date)
+    Customer.parse(req.body)
     const result = await prisma.customer.update({
       where: { id: Number(req.params.id) },
       data: req.body
     })
-
     // Encontrou e atualizou ~> HTTP 204: No Content
     if(result) res.status(204).end()
     // Não encontrou (e não atualizou) ~> HTTP 404: Not Found
@@ -76,9 +82,12 @@ controller.update = async function(req, res) {
   }
   catch(error) {
     console.error(error)
-
-    // HTTP 500: Internal Server Error
-    res.status(500).end()
+    // Não encontrou e não atualizou ~> HTTP 404: Not Found
+    if(error?.code === 'P2025') res.status(404).end()
+    // Erro do Zod ~> HTTP 422: Unprocessable Entity
+    else if(error instanceof ZodError) res.status(422).send(error.issues)
+    // Outros erros ~> HTTP 500: Internal Server Error
+    else res.status(500).end()
   }
 }
 
