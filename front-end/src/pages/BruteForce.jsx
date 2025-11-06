@@ -1,33 +1,34 @@
+
 import React from 'react'
 import wordlist from '../data/wordlist'
 import myfetch from '../lib/myfetch'
 
 
 export default function BruteForce() {
- const [logs, setLogs] = React.useState([])
- const [isRunning, setIsRunning] = React.useState(false)
- const stopRef = React.useRef(false)
- const logsEndRef = React.useRef(null)
- const [concurrency, setConcurrency] = React.useState(5) // Número de requisições paralelas
+const [logs, setLogs] = React.useState([])
+const [isRunning, setIsRunning] = React.useState(false)
+const stopRef = React.useRef(false)
+const logsEndRef = React.useRef(null)
+const [concurrency, setConcurrency] = React.useState(5) // Número de requisições paralelas
 
 
- // Auto-scroll para o topo quando novos logs são adicionados
- React.useEffect(() => {
+// Auto-scroll para o topo quando novos logs são adicionados
+React.useEffect(() => {
    logsEndRef.current?.scrollTo(0, 0)
- }, [logs])
+}, [logs])
 
 
- function tryPassword(password) {
+function tryPassword(password) {
    return myfetch.post('/users/login', {
      username: 'admin',
      password
    })
    .then(() => 'OK')
    .catch(error => error.message)
- }
+}
 
 
- async function handleStartClick() {
+async function handleStartClick() {
    setIsRunning(true)
    stopRef.current = false
    setLogs([])
@@ -94,12 +95,13 @@ export default function BruteForce() {
    setIsRunning(false)
 }
 
- function handleStopClick() {
+
+function handleStopClick() {
    stopRef.current = true
- }
+}
 
 
- return (
+return (
    <>
      <h1>Ataque de força bruta no <em>login</em></h1>
      <div style={{ marginBottom: '1rem' }}>
@@ -160,5 +162,5 @@ export default function BruteForce() {
        )}
      </div>
    </>
- )
+)
 }
