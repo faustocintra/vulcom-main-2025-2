@@ -1,3 +1,5 @@
+import Customer from '../../models/Customer.js'
+import { ZodError } from 'zod'
 import React from 'react'
 import Typography from '@mui/material/Typography'
 import Box from '@mui/material/Box'
@@ -94,35 +96,53 @@ export default function CustomerForm() {
     setState({ ...state, customer: customerCopy, formModified: true })
   }
 
-  async function handleFormSubmit(e) {
-    e.preventDefault()    // Evita o recarregamento da página
-    // Exibir a tela de espera
-    showWaiting(true)
-    try {
-      // Envia os dados para o back-end para criar um novo cliente
-      // no banco de dados
-      // Se houver parâmetro na rota, significa que estamos editando.
-      // Portanto, precisamos enviar os dados ao back-end com o verbo PUT
-      if(params.id) await myfetch.put(`/customers/${params.id}`, customer)
-      
-      // Senão, os dados serão enviados com o método POST para a criação de
-      // um novo cliente
-      else await myfetch.post('/customers', customer)
 
-      // Deu certo, vamos exibir a mensagem de feedback que, quando fechada,
-      // vai nos mandar de volta para a listagem de clientes
-      notify('Item salvo com sucesso.', 'success', 4000, () => {
-        navigate('..', { relative: 'path', replace: true })
-      })
-    }
-    catch(error) {
-      console.error(error)
-      notify(error.message, 'error')
-    }
-    finally {
-      showWaiting(false)
-    }
-  }
+async function handleFormSubmit(e) {
+   e.preventDefault()    // Evita o recarregamento da página
+   // Exibir a tela de espera
+   showWaiting(true)
+   try {
+     // Invoca a validação do Zod
+     Customer.parse(customer)
+
+
+     // Envia os dados para o back-end para criar um novo cliente
+     // no banco de dados
+     // Se houver parâmetro na rota, significa que estamos editando.
+     // Portanto, precisamos enviar os dados ao back-end com o verbo PUT
+     if(params.id) await myfetch.put(`/customers/${params.id}`, customer)
+    
+     // Senão, os dados serão enviados com o método POST para a criação de
+     // um novo cliente
+     else await myfetch.post('/customers', customer)
+
+
+     // Deu certo, vamos exibir a mensagem de feedback que, quando fechada,
+     // vai nos mandar de volta para a listagem de clientes
+     notify('Item salvo com sucesso.', 'success', 4000, () => {
+       navigate('..', { relative: 'path', replace: true })
+     })
+   }
+   catch(error) {
+     console.error(error)
+    
+     // Em caso de erro do Zod, preenchemos a variável de estado
+     // inputErrors com os erros para depois exibir abaixo de cada
+     // campo de entrada
+     if(error instanceof ZodError) {
+       const errorMessages = {}
+       for(let i of error.issues) errorMessages[i.path[0]] = i.message
+       setState({ ...state, inputErrors: errorMessages })
+       notify('Há campos com valores inválidos. Verifique.', 'error')
+     }
+     else notify(error.message, 'error')
+   }
+   finally {
+     showWaiting(false)
+   }
+ }
+
+
   
   // useEffect() que é executado uma vez no carregamento da página.
   // Verifica se a rota tem parâmetros e, caso tenha, significa que estamos
@@ -175,18 +195,19 @@ export default function CustomerForm() {
       <Box className="form-fields">
         <form onSubmit={handleFormSubmit}>
 
-          <TextField 
-            name="name"
-            label="Nome completo"
-            variant="filled"
-            required
-            fullWidth
-            autoFocus
-            value={customer.name}
-            onChange={handleFieldChange} 
-            error={inputErrors?.name}
-            helperText={inputErrors?.name} 
-          />
+         <TextField
+           name="name"
+           label="Nome completo"
+           variant="filled"
+           required
+           fullWidth
+           autoFocus
+           value={customer.name}
+           onChange={handleFieldChange}
+           error={inputErrors?.name}
+           helperText={inputErrors?.name}
+         />
+
 
           <InputMask
             mask="999.999.999-99"
