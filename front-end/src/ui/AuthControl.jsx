@@ -43,6 +43,7 @@ export default function AuthControl() {
     }
   }
 
+
   if(authUser) {
     return (
       <>
