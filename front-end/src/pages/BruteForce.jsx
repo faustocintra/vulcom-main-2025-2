@@ -94,6 +94,7 @@ async function handleStartClick() {
    setIsRunning(false)
 }
 
+
  return (
    <>
      <h1>Ataque de força bruta no <em>login</em></h1>
