@@ -16,6 +16,7 @@ import myfetch from '../../lib/myfetch'
 import useConfirmDialog from '../../ui/useConfirmDialog'
 import useNotification from '../../ui/useNotification'
 import useWaiting from '../../ui/useWaiting'
+import { carCreateSchema, carUpdateSchema, CAR_COLORS } from '../../validation/car'
 
 export default function CarForm() {
   /*
@@ -50,21 +51,7 @@ export default function CarForm() {
   const { notify, Notification } = useNotification()
   const { showWaiting, Waiting } = useWaiting()
 
-  const colors = [
-    { value: 'AMARELO', label: 'AMARELO' },
-    { value: 'AZUL', label: 'AZUL' },
-    { value: 'BRANCO', label: 'BRANCO' },
-    { value: 'CINZA', label: 'CINZA' },
-    { value: 'DOURADO', label: 'DOURADO' },
-    { value: 'LARANJA', label: 'LARANJA' },
-    { value: 'MARROM', label: 'MARROM' },
-    { value: 'PRATA', label: 'PRATA' },
-    { value: 'PRETO', label: 'PRETO' },
-    { value: 'ROSA', label: 'ROSA' },
-    { value: 'ROXO', label: 'ROXO' },
-    { value: 'VERDE', label: 'VERDE' },
-    { value: 'VERMELHO', label: 'VERMELHO' },
-  ]
+  const colors = CAR_COLORS.map(color => ({ value: color, label: color }))
 
   const plateMaskFormatChars = {
     9: '[0-9]', // somente dígitos
@@ -80,9 +67,11 @@ export default function CarForm() {
   }
 
   const [imported, setImported] = React.useState(false)
-  // car.imported = imported
+  
   const handleImportedChange = (event) => {
-    setImported(event.target.checked)
+    const isChecked = event.target.checked
+    setImported(isChecked)
+    handleFieldChange({ target: { name: 'imported', value: isChecked } })
   }
 
   function handleFieldChange(event) {
@@ -94,26 +83,56 @@ export default function CarForm() {
   async function handleFormSubmit(event) {
     event.preventDefault(); // Evita que a página seja recarregada
     showWaiting(true); // Exibe a tela de espera
+    
+    // Limpa erros anteriores
+    setState(prevState => ({ ...prevState, inputErrors: {} }))
+    
     try {
+      // Prepara os dados para validação
+      const dataToValidate = {
+        ...car,
+        imported: imported,
+        year_manufacture: car.year_manufacture ? parseInt(car.year_manufacture, 10) : '',
+        selling_price: car.selling_price === '' ? null : car.selling_price,
+        customer_id: car.customer_id === '' ? null : parseInt(car.customer_id, 10)
+      }
 
-      if(car.selling_price === '') car.selling_price = null
+      // Valida os dados usando o schema Zod apropriado
+      const schema = params.id ? carUpdateSchema : carCreateSchema
+      const validatedData = schema.parse(dataToValidate)
 
       // Se houver parâmetro na rota, significa que estamos modificando
-      // um cliente já existente. A requisição será enviada ao back-end
+      // um carro já existente. A requisição será enviada ao back-end
       // usando o método PUT
-      if (params.id) await myfetch.put(`/cars/${params.id}`, car)
-      // Caso contrário, estamos criando um novo cliente, e enviaremos
+      if (params.id) await myfetch.put(`/cars/${params.id}`, validatedData)
+      // Caso contrário, estamos criando um novo carro, e enviaremos
       // a requisição com o método POST
-      else await myfetch.post('/cars', car)
+      else await myfetch.post('/cars', validatedData)
 
       // Deu certo, vamos exbir a mensagem de feedback que, quando for
-      // fechada, vai nos mandar de volta para a listagem de clientes
+      // fechada, vai nos mandar de volta para a listagem de carros
       notify('Item salvo com sucesso.', 'success', 4000, () => {
         navigate('..', { relative: 'path', replace: true })
       })
     } catch (error) {
       console.error(error)
-      notify(error.message, 'error')
+      
+      if (error.name === 'ZodError') {
+        // Erros de validação do Zod
+        const validationErrors = {}
+        error.errors.forEach((err) => {
+          const field = err.path.join('.')
+          validationErrors[field] = err.message
+        })
+        setState(prevState => ({ ...prevState, inputErrors: validationErrors }))
+        notify('Por favor, corrija os erros no formulário.', 'error')
+      } else if (error.response?.data?.errors) {
+        // Erros de validação do backend
+        setState(prevState => ({ ...prevState, inputErrors: error.response.data.errors }))
+        notify('Por favor, corrija os erros no formulário.', 'error')
+      } else {
+        notify(error.message, 'error')
+      }
     } finally {
       // Desliga a tela de espera, seja em caso de sucesso, seja em caso de erro
       showWaiting(false)
@@ -148,10 +167,12 @@ export default function CarForm() {
 
         // Converte o formato de data armazenado no banco de dados
         // para o formato reconhecido pelo componente DatePicker
-        
         if(car.selling_date) {
           car.selling_date = parseISO(car.selling_date)
         }
+        
+        // Inicializa o estado do campo imported
+        setImported(car.imported || false)
       }
 
       setState({ ...state, car, customers })
@@ -222,15 +243,15 @@ export default function CarForm() {
 
           <TextField
             name='color'
-            label='Color'
+            label='Cor'
             variant='filled'
             required
             fullWidth
             value={car.color}
             onChange={handleFieldChange}
             select
-            helperText={inputErrors?.state}
-            error={inputErrors?.state}
+            helperText={inputErrors?.color}
+            error={inputErrors?.color}
           >
             {colors.map((s) => (
               <MenuItem key={s.value} value={s.value}>
@@ -258,13 +279,11 @@ export default function CarForm() {
             ))}
           </TextField>
 
-          <div class="MuiFormControl-root">
+          <div className="MuiFormControl-root">
             <FormControlLabel
               control={
                 <Checkbox
                   name='imported'
-                  variant='filled'
-                  value={(car.imported = imported)}
                   checked={imported}
                   onChange={handleImportedChange}
                   color='primary'
@@ -272,6 +291,11 @@ export default function CarForm() {
               }
               label='Importado'
             />
+            {inputErrors?.imported && (
+              <Typography variant="caption" color="error" sx={{ ml: 2 }}>
+                {inputErrors.imported}
+              </Typography>
+            )}
           </div>
 
           <InputMask
@@ -288,8 +312,8 @@ export default function CarForm() {
                 variant='filled'
                 required
                 fullWidth
-                helperText={inputErrors?.phone}
-                error={inputErrors?.phone}
+                helperText={inputErrors?.plates}
+                error={inputErrors?.plates}
               />
             )}
           </InputMask>

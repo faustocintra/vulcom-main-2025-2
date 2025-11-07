@@ -1,24 +1,43 @@
 import prisma from '../database/client.js'
+import { carCreateSchema, carUpdateSchema } from '../validation/car.js'
+import validateData from '../middleware/validation.js'
 
 const controller = {}     // Objeto vazio
 
 controller.create = async function(req, res) {
   try {
+    // Valida os dados usando o schema Zod
+    const validatedData = carCreateSchema.parse(req.body)
 
     // Preenche qual usuário criou o carro com o id do usuário autenticado
-    req.body.created_user_id = req.authUser.id
+    validatedData.created_user_id = req.authUser.id
 
     // Preenche qual usuário modificou por último o carro com o id
     // do usuário autenticado
-    req.body.updated_user_id = req.authUser.id
+    validatedData.updated_user_id = req.authUser.id
 
-    await prisma.car.create({ data: req.body })
+    await prisma.car.create({ data: validatedData })
 
     // HTTP 201: Created
     res.status(201).end()
   }
   catch(error) {
     console.error(error)
+
+    // Se for erro de validação do Zod
+    if (error.name === 'ZodError') {
+      const validationErrors = {}
+      
+      error.errors.forEach((err) => {
+        const field = err.path.join('.')
+        validationErrors[field] = err.message
+      })
+      
+      return res.status(422).json({
+        message: 'Dados inválidos',
+        errors: validationErrors
+      })
+    }
 
     // HTTP 500: Internal Server Error
     res.status(500).end()
@@ -83,10 +102,15 @@ controller.retrieveOne = async function(req, res) {
 
 controller.update = async function(req, res) {
   try {
+    // Valida os dados usando o schema Zod para atualização
+    const validatedData = carUpdateSchema.parse(req.body)
+
+    // Preenche qual usuário modificou por último o carro
+    validatedData.updated_user_id = req.authUser.id
 
     const result = await prisma.car.update({
       where: { id: Number(req.params.id) },
-      data: req.body
+      data: validatedData
     })
 
     // Encontrou e atualizou ~> HTTP 204: No Content
@@ -96,6 +120,21 @@ controller.update = async function(req, res) {
   }
   catch(error) {
     console.error(error)
+
+    // Se for erro de validação do Zod
+    if (error.name === 'ZodError') {
+      const validationErrors = {}
+      
+      error.errors.forEach((err) => {
+        const field = err.path.join('.')
+        validationErrors[field] = err.message
+      })
+      
+      return res.status(422).json({
+        message: 'Dados inválidos',
+        errors: validationErrors
+      })
+    }
 
     // HTTP 500: Internal Server Error
     res.status(500).end()
