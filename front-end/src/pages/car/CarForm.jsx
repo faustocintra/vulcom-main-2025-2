@@ -16,6 +16,7 @@ import myfetch from '../../lib/myfetch'
 import useConfirmDialog from '../../ui/useConfirmDialog'
 import useNotification from '../../ui/useNotification'
 import useWaiting from '../../ui/useWaiting'
+import Car from '../../models/Car' // NOVO IMPORT
 
 export default function CarForm() {
   /*
@@ -32,6 +33,7 @@ export default function CarForm() {
     imported: false,
     plates: '',
     selling_date: null,
+    selling_price: '', // Valor inicial como string vazia para o campo de número
     customer_id: ''
   }
 
@@ -91,20 +93,58 @@ export default function CarForm() {
     setState({ ...state, car: carCopy, formModified: true })
   }
 
+  // NOVA FUNÇÃO DE VALIDAÇÃO COM ZOD
+  async function validateForm() {
+    
+    // Criar uma cópia do objeto car para manipulação e validação
+    const carToValidate = { ...car }
+
+    // Campos que são opcionais e precisam ser convertidos de '' para null para validação Zod
+    if (carToValidate.selling_price === '') carToValidate.selling_price = null
+    if (carToValidate.customer_id === '') carToValidate.customer_id = null
+    // selling_date já é inicializado com null, então não precisa de verificação de string.
+    
+    // Tentar validar os dados com o modelo Zod
+    const validation = await Car.safeParseAsync(carToValidate)
+    
+    // Se a validação falhar, montar o objeto de erros para exibir no formulário
+    if (!validation.success) {
+      const errors = {}
+      for (const err of validation.error.issues) {
+        errors[err.path[0]] = err.message
+      }
+      setState({ ...state, inputErrors: errors })
+      return false
+    }
+
+    // Se a validação for bem-sucedida, limpar erros e retornar o objeto validado
+    setState({ ...state, inputErrors: {} })
+    // Retornar o objeto validado (com a coerção de tipos do Zod, se necessário)
+    return validation.data
+  }
+
   async function handleFormSubmit(event) {
     event.preventDefault(); // Evita que a página seja recarregada
     showWaiting(true); // Exibe a tela de espera
     try {
 
-      if(car.selling_price === '') car.selling_price = null
+      // VALIDAÇÃO FRONT-END: Valida e obtém o objeto com os tipos corretos (ex: price como number/null)
+      const validatedCar = await validateForm()
+      if (!validatedCar) {
+        notify('Há campos inválidos no formulário.', 'error')
+        return // Sai da função se a validação falhar
+      }
+
+      // NÃO é mais necessário, pois validateForm já converte string vazia para null para o Zod.
+      /*if(car.selling_price === '') car.selling_price = null*/
 
       // Se houver parâmetro na rota, significa que estamos modificando
       // um cliente já existente. A requisição será enviada ao back-end
       // usando o método PUT
-      if (params.id) await myfetch.put(`/cars/${params.id}`, car)
+      if (params.id) await myfetch.put(`/cars/${params.id}`, validatedCar)
       // Caso contrário, estamos criando um novo cliente, e enviaremos
       // a requisição com o método POST
-      else await myfetch.post('/cars', car)
+      else await myfetch.post('/cars', validatedCar)
 
       // Deu certo, vamos exbir a mensagem de feedback que, quando for
       // fechada, vai nos mandar de volta para a listagem de clientes
@@ -113,7 +153,19 @@ export default function CarForm() {
       })
     } catch (error) {
       console.error(error)
-      notify(error.message, 'error')
+      
+      // Tratamento de erros de validação do back-end (HTTP 422)
+      if (error.status === 422) {
+        const errors = {}
+        for (const err of error.body.errors) {
+          errors[err.field] = err.message
+        }
+        setState({ ...state, inputErrors: errors })
+        notify('Erro de validação: verifique os campos em vermelho.', 'error')
+      }
+      else {
+        notify(error.message, 'error')
+      }
     } finally {
       // Desliga a tela de espera, seja em caso de sucesso, seja em caso de erro
       showWaiting(false)
@@ -152,6 +204,11 @@ export default function CarForm() {
         if(car.selling_date) {
           car.selling_date = parseISO(car.selling_date)
         }
+
+        // Converte o preço de venda de null para '' para o campo de texto
+        if(car.selling_price === null) {
+          car.selling_price = ''
+        }
       }
 
       setState({ ...state, car, customers })
@@ -180,7 +237,8 @@ export default function CarForm() {
   function handleKeyDown(event) {
     if(event.key === 'Delete') {
       const stateCopy = {...state}
-      stateCopy.car.customer_id = null
+      // Garante que o ID do cliente seja definido como null para campos opcionais
+      stateCopy.car.customer_id = null 
       setState(stateCopy)
     }
   }
@@ -229,8 +287,8 @@ export default function CarForm() {
             value={car.color}
             onChange={handleFieldChange}
             select
-            helperText={inputErrors?.state}
-            error={inputErrors?.state}
+            helperText={inputErrors?.color} // CORRIGIDO: era inputErrors?.state
+            error={inputErrors?.color}     // CORRIGIDO: era inputErrors?.state
           >
             {colors.map((s) => (
               <MenuItem key={s.value} value={s.value}>
@@ -264,7 +322,9 @@ export default function CarForm() {
                 <Checkbox
                   name='imported'
                   variant='filled'
-                  value={(car.imported = imported)}
+                  // A linha abaixo foi removida pois é uma atribuição durante o render
+                  // value={(car.imported = imported)} 
+                  value={car.imported} // Agora usa o valor do objeto car diretamente
                   checked={imported}
                   onChange={handleImportedChange}
                   color='primary'
@@ -288,8 +348,8 @@ export default function CarForm() {
                 variant='filled'
                 required
                 fullWidth
-                helperText={inputErrors?.phone}
-                error={inputErrors?.phone}
+                helperText={inputErrors?.plates} // CORRIGIDO: era inputErrors?.phone
+                error={inputErrors?.plates}     // CORRIGIDO: era inputErrors?.phone
               />
             )}
           </InputMask>
@@ -310,6 +370,7 @@ export default function CarForm() {
                 textField: {
                   variant: 'filled',
                   fullWidth: true,
+                  required: false, // Explicitamente não requerido (opcional)
                   helperText: inputErrors?.selling_date,
                   error: inputErrors?.selling_date,
                 },
@@ -333,7 +394,8 @@ export default function CarForm() {
             name='customer_id'
             label='Cliente'
             variant='filled'
-            required
+            // REMOVIDO: required. O campo é opcional (carro não vendido) e deve ser nullish.
+            // required
             fullWidth
             value={car.customer_id}
             onChange={handleFieldChange}

@@ -1,9 +1,12 @@
 import prisma from '../database/client.js'
+import Car from '../models/Car.js' // NOVO IMPORT
 
 const controller = {}     // Objeto vazio
 
 controller.create = async function(req, res) {
   try {
+    // VALIDAÇÃO ZOD
+    await Car.parseAsync(req.body) // Tenta validar o objeto.
 
     // Preenche qual usuário criou o carro com o id do usuário autenticado
     req.body.created_user_id = req.authUser.id
@@ -20,8 +23,21 @@ controller.create = async function(req, res) {
   catch(error) {
     console.error(error)
 
-    // HTTP 500: Internal Server Error
-    res.status(500).end()
+    // Tratamento de erro Zod
+    if (error.name === 'ZodError') {
+      // HTTP 422: Unprocessable Entity
+      res.status(422).send({
+        // Mapeia os erros de validação
+        errors: error.errors.map(err => ({
+          field: err.path.join('.'), // Nome do campo com erro
+          message: err.message       // Mensagem de erro
+        }))
+      })
+    }
+    else {
+      // HTTP 500: Internal Server Error
+      res.status(500).end()
+    }
   }
 }
 
@@ -83,6 +99,12 @@ controller.retrieveOne = async function(req, res) {
 
 controller.update = async function(req, res) {
   try {
+    // VALIDAÇÃO ZOD
+    await Car.parseAsync(req.body) 
+
+    // Preenche qual usuário modificou por último o carro com o id
+    // do usuário autenticado
+    req.body.updated_user_id = req.authUser.id
 
     const result = await prisma.car.update({
       where: { id: Number(req.params.id) },
@@ -97,8 +119,21 @@ controller.update = async function(req, res) {
   catch(error) {
     console.error(error)
 
-    // HTTP 500: Internal Server Error
-    res.status(500).end()
+    // Tratamento de erro Zod
+    if (error.name === 'ZodError') {
+      // HTTP 422: Unprocessable Entity
+      res.status(422).send({
+        // Mapeia os erros de validação
+        errors: error.errors.map(err => ({
+          field: err.path.join('.'), // Nome do campo com erro
+          message: err.message       // Mensagem de erro
+        }))
+      })
+    }
+    else {
+      // HTTP 500: Internal Server Error
+      res.status(500).end()
+    }
   }
 }
 
