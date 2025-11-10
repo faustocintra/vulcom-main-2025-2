@@ -13,16 +13,16 @@ import React from 'react'
 import InputMask from 'react-input-mask'
 import { useNavigate, useParams } from 'react-router-dom'
 import myfetch from '../../lib/myfetch'
+import Car from '../../models/Car'
 import useConfirmDialog from '../../ui/useConfirmDialog'
 import useNotification from '../../ui/useNotification'
 import useWaiting from '../../ui/useWaiting'
+import { ZodError } from 'zod'
 
 export default function CarForm() {
   /*
-    Por padrão, todos os campos do nosso formulário terão como
-    valor inicial uma string vazia. A exceção é o campo birth_date
-    que, devido ao funcionamento do componente DatePicker, deve
-    iniciar valendo null.
+    Por padrão, campos de texto iniciam com string vazia. Para datas,
+    usamos null por conta do DatePicker.
   */
   const formDefaults = {
     brand: '',
@@ -32,7 +32,8 @@ export default function CarForm() {
     imported: false,
     plates: '',
     selling_date: null,
-    customer_id: ''
+    selling_price: '',
+    customer_id: null
   }
 
   const [state, setState] = React.useState({
@@ -79,41 +80,84 @@ export default function CarForm() {
     years.push(year)
   }
 
-  const [imported, setImported] = React.useState(false)
-  // car.imported = imported
-  const handleImportedChange = (event) => {
-    setImported(event.target.checked)
+  function handleFieldChange(event) {
+    const { name } = event.target
+    let { value } = event.target
+
+    if(name === 'customer_id') {
+      value = value === '' || value === null ? null : Number(value)
+    }
+    else if(name === 'year_manufacture') {
+      value = value === '' ? '' : Number(value)
+    }
+    else if(name === 'selling_price') {
+      value = value === '' ? '' : value
+    }
+
+    setState(prevState => {
+      const updatedErrors = { ...prevState.inputErrors }
+      delete updatedErrors[name]
+
+      return {
+        ...prevState,
+        car: {
+          ...prevState.car,
+          [name]: value
+        },
+        inputErrors: updatedErrors,
+        formModified: true
+      }
+    })
   }
 
-  function handleFieldChange(event) {
-    const carCopy = { ...car }
-    carCopy[event.target.name] = event.target.value
-    setState({ ...state, car: carCopy, formModified: true })
+  function handleCheckboxChange(event) {
+    const { name, checked } = event.target
+
+    setState(prevState => {
+      const updatedErrors = { ...prevState.inputErrors }
+      delete updatedErrors[name]
+
+      return {
+        ...prevState,
+        car: {
+          ...prevState.car,
+          [name]: checked
+        },
+        inputErrors: updatedErrors,
+        formModified: true
+      }
+    })
   }
 
   async function handleFormSubmit(event) {
-    event.preventDefault(); // Evita que a página seja recarregada
-    showWaiting(true); // Exibe a tela de espera
+    event.preventDefault() // Evita que a página seja recarregada
+    showWaiting(true) // Exibe a tela de espera
     try {
+      setState(prevState => ({ ...prevState, inputErrors: {} }))
 
-      if(car.selling_price === '') car.selling_price = null
+      const candidate = {
+        ...car,
+        customer_id: car.customer_id ?? null,
+        selling_price: car.selling_price === '' ? null : car.selling_price
+      }
 
-      // Se houver parâmetro na rota, significa que estamos modificando
-      // um cliente já existente. A requisição será enviada ao back-end
-      // usando o método PUT
-      if (params.id) await myfetch.put(`/cars/${params.id}`, car)
-      // Caso contrário, estamos criando um novo cliente, e enviaremos
-      // a requisição com o método POST
-      else await myfetch.post('/cars', car)
+      const validatedCar = Car.parse(candidate)
 
-      // Deu certo, vamos exbir a mensagem de feedback que, quando for
-      // fechada, vai nos mandar de volta para a listagem de clientes
+      if (params.id) await myfetch.put(`/cars/${params.id}`, validatedCar)
+      else await myfetch.post('/cars', validatedCar)
+
       notify('Item salvo com sucesso.', 'success', 4000, () => {
         navigate('..', { relative: 'path', replace: true })
       })
     } catch (error) {
       console.error(error)
-      notify(error.message, 'error')
+      if(error instanceof ZodError) {
+        const fieldErrors = {}
+        for(const issue of error.issues) fieldErrors[issue.path[0]] = issue.message
+        setState(prevState => ({ ...prevState, inputErrors: fieldErrors }))
+        notify('Há campos com valores inválidos. Verifique.', 'error')
+      }
+      else notify(error.message, 'error')
     } finally {
       // Desliga a tela de espera, seja em caso de sucesso, seja em caso de erro
       showWaiting(false)
@@ -152,9 +196,21 @@ export default function CarForm() {
         if(car.selling_date) {
           car.selling_date = parseISO(car.selling_date)
         }
+
+  car.selling_price = car.selling_price == null ? '' : String(car.selling_price)
+        car.customer_id = car.customer_id ?? null
+      }
+      else {
+        car = { ...formDefaults }
       }
 
-      setState({ ...state, car, customers })
+      setState(prevState => ({
+        ...prevState,
+        car,
+        customers,
+        inputErrors: {},
+        formModified: false
+      }))
 
     } catch (error) {
       console.error(error)
@@ -179,9 +235,20 @@ export default function CarForm() {
 
   function handleKeyDown(event) {
     if(event.key === 'Delete') {
-      const stateCopy = {...state}
-      stateCopy.car.customer_id = null
-      setState(stateCopy)
+      setState(prevState => {
+        const updatedErrors = { ...prevState.inputErrors }
+        delete updatedErrors.customer_id
+
+        return {
+          ...prevState,
+          car: {
+            ...prevState.car,
+            customer_id: null
+          },
+          inputErrors: updatedErrors,
+          formModified: true
+        }
+      })
     }
   }
 
@@ -229,8 +296,8 @@ export default function CarForm() {
             value={car.color}
             onChange={handleFieldChange}
             select
-            helperText={inputErrors?.state}
-            error={inputErrors?.state}
+            helperText={inputErrors?.color}
+            error={inputErrors?.color}
           >
             {colors.map((s) => (
               <MenuItem key={s.value} value={s.value}>
@@ -246,7 +313,7 @@ export default function CarForm() {
             required
             fullWidth
             select
-            value={car.year_manufacture}
+            value={car.year_manufacture === '' ? '' : car.year_manufacture}
             onChange={handleFieldChange}
             helperText={inputErrors?.year_manufacture}
             error={inputErrors?.year_manufacture}
@@ -258,15 +325,13 @@ export default function CarForm() {
             ))}
           </TextField>
 
-          <div class="MuiFormControl-root">
+          <div className='MuiFormControl-root'>
             <FormControlLabel
               control={
                 <Checkbox
                   name='imported'
-                  variant='filled'
-                  value={(car.imported = imported)}
-                  checked={imported}
-                  onChange={handleImportedChange}
+                  checked={Boolean(car.imported)}
+                  onChange={handleCheckboxChange}
                   color='primary'
                 />
               }
@@ -288,8 +353,8 @@ export default function CarForm() {
                 variant='filled'
                 required
                 fullWidth
-                helperText={inputErrors?.phone}
-                error={inputErrors?.phone}
+                helperText={inputErrors?.plates}
+                error={inputErrors?.plates}
               />
             )}
           </InputMask>
@@ -323,7 +388,7 @@ export default function CarForm() {
             variant='filled'
             type='number'
             fullWidth
-            value={car.selling_price}
+            value={car.selling_price === '' ? '' : car.selling_price}
             onChange={handleFieldChange}
             helperText={inputErrors?.selling_price}
             error={inputErrors?.selling_price}
@@ -335,7 +400,7 @@ export default function CarForm() {
             variant='filled'
             required
             fullWidth
-            value={car.customer_id}
+            value={car.customer_id ?? ''}
             onChange={handleFieldChange}
             onKeyDown={handleKeyDown}
             select

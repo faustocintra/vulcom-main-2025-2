@@ -1,24 +1,28 @@
 import prisma from '../database/client.js'
+import Car from '../models/Car.js'
+import { ZodError } from 'zod'
 
 const controller = {}     // Objeto vazio
 
 controller.create = async function(req, res) {
   try {
+    const validatedCar = Car.parse({ ...req.body })
 
-    // Preenche qual usuário criou o carro com o id do usuário autenticado
-    req.body.created_user_id = req.authUser.id
-
-    // Preenche qual usuário modificou por último o carro com o id
-    // do usuário autenticado
-    req.body.updated_user_id = req.authUser.id
-
-    await prisma.car.create({ data: req.body })
+    await prisma.car.create({
+      data: {
+        ...validatedCar,
+        created_user_id: req.authUser.id,
+        updated_user_id: req.authUser.id
+      }
+    })
 
     // HTTP 201: Created
     res.status(201).end()
   }
   catch(error) {
     console.error(error)
+
+    if(error instanceof ZodError) return res.status(422).send(error.issues)
 
     // HTTP 500: Internal Server Error
     res.status(500).end()
@@ -83,19 +87,25 @@ controller.retrieveOne = async function(req, res) {
 
 controller.update = async function(req, res) {
   try {
+    const validatedCar = Car.parse({ ...req.body })
 
-    const result = await prisma.car.update({
+    await prisma.car.update({
       where: { id: Number(req.params.id) },
-      data: req.body
+      data: {
+        ...validatedCar,
+        updated_user_id: req.authUser.id
+      }
     })
 
     // Encontrou e atualizou ~> HTTP 204: No Content
-    if(result) res.status(204).end()
-    // Não encontrou (e não atualizou) ~> HTTP 404: Not Found
-    else res.status(404).end()
+    res.status(204).end()
   }
   catch(error) {
     console.error(error)
+
+    if(error?.code === 'P2025') return res.status(404).end()
+
+    if(error instanceof ZodError) return res.status(422).send(error.issues)
 
     // HTTP 500: Internal Server Error
     res.status(500).end()
