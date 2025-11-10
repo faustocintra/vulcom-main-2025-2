@@ -16,6 +16,8 @@ import myfetch from '../../lib/myfetch'
 import useConfirmDialog from '../../ui/useConfirmDialog'
 import useNotification from '../../ui/useNotification'
 import useWaiting from '../../ui/useWaiting'
+import { ZodError } from 'zod'
+import Car from '../../validators/Car.js'
 
 export default function CarForm() {
   /*
@@ -92,33 +94,50 @@ export default function CarForm() {
   }
 
   async function handleFormSubmit(event) {
-    event.preventDefault(); // Evita que a página seja recarregada
-    showWaiting(true); // Exibe a tela de espera
-    try {
+  event.preventDefault()  // Evita recarregar a página
+  showWaiting(true)       // Exibe tela de espera
 
-      if(car.selling_price === '') car.selling_price = null
+  try {
+    // Se o preço estiver vazio, convertemos para null (campo opcional)
+    if(car.selling_price === '') car.selling_price = null
 
-      // Se houver parâmetro na rota, significa que estamos modificando
-      // um cliente já existente. A requisição será enviada ao back-end
-      // usando o método PUT
-      if (params.id) await myfetch.put(`/cars/${params.id}`, car)
-      // Caso contrário, estamos criando um novo cliente, e enviaremos
-      // a requisição com o método POST
-      else await myfetch.post('/cars', car)
+    // Se houver data de venda em branco, também convertendo para null
+    if(car.selling_date === '') car.selling_date = null
 
-      // Deu certo, vamos exbir a mensagem de feedback que, quando for
-      // fechada, vai nos mandar de volta para a listagem de clientes
-      notify('Item salvo com sucesso.', 'success', 4000, () => {
-        navigate('..', { relative: 'path', replace: true })
-      })
-    } catch (error) {
-      console.error(error)
-      notify(error.message, 'error')
-    } finally {
-      // Desliga a tela de espera, seja em caso de sucesso, seja em caso de erro
-      showWaiting(false)
-    }
+    // Validação do Zod
+    Car.parse(car)
+
+    // PUT quando editando
+    if(params.id) await myfetch.put(`/cars/${params.id}`, car)
+
+    // POST quando criando novo
+    else await myfetch.post('/cars', car)
+
+    // Feedback → volta para a lista
+    notify('Item salvo com sucesso.', 'success', 4000, () => {
+      navigate('..', { relative: 'path', replace: true })
+    })
   }
+  catch(error) {
+    console.error(error)
+
+    // Erro de validação do Zod
+    if(error instanceof ZodError) {
+      const errorMessages = {}
+      for(let issue of error.issues) {
+        errorMessages[issue.path[0]] = issue.message
+      }
+
+      setState({ ...state, inputErrors: errorMessages })
+      notify('Há campos com valores inválidos. Verifique.', 'error')
+    }
+
+    else notify(error.message, 'error')
+  }
+  finally {
+    showWaiting(false)   // Sempre desliga a tela de espera
+  }
+}
 
   /*
     useEffect() que é executado apenas uma vez, no carregamento do componente.
