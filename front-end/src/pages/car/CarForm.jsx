@@ -7,7 +7,7 @@ import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers'
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFnsV3'
-import { parseISO } from 'date-fns'
+import { parseISO, isBefore, isAfter, format } from 'date-fns'
 import { ptBR } from 'date-fns/locale/pt-BR'
 import React from 'react'
 import InputMask from 'react-input-mask'
@@ -18,12 +18,6 @@ import useNotification from '../../ui/useNotification'
 import useWaiting from '../../ui/useWaiting'
 
 export default function CarForm() {
-  /*
-    Por padrão, todos os campos do nosso formulário terão como
-    valor inicial uma string vazia. A exceção é o campo birth_date
-    que, devido ao funcionamento do componente DatePicker, deve
-    iniciar valendo null.
-  */
   const formDefaults = {
     brand: '',
     model: '',
@@ -32,16 +26,21 @@ export default function CarForm() {
     imported: false,
     plates: '',
     selling_date: null,
+    selling_price: '',
     customer_id: ''
   }
+
+  // Data de abertura da loja (20/03/2020)
+  const storeOpeningDate = new Date(2020, 2, 20) // Mês é 0-based (2 = março)
 
   const [state, setState] = React.useState({
     car: { ...formDefaults },
     formModified: false,
     customers: [],
     inputErrors: {},
+    fieldWarnings: {}, // Novos avisos específicos por campo
   })
-  const { car, customers, formModified, inputErrors } = state
+  const { car, customers, formModified, inputErrors, fieldWarnings } = state
 
   const params = useParams()
   const navigate = useNavigate()
@@ -67,9 +66,9 @@ export default function CarForm() {
   ]
 
   const plateMaskFormatChars = {
-    9: '[0-9]', // somente dígitos
-    $: '[0-9A-J]', // dígito de 0 a 9 ou uma letra de A a J.
-    A: '[A-Z]', //  letra maiúscula de A a Z.
+    9: '[0-9]',
+    $: '[0-9A-J]',
+    A: '[A-Z]',
   }
 
   const currentYear = new Date().getFullYear()
@@ -79,53 +78,146 @@ export default function CarForm() {
     years.push(year)
   }
 
-  const [imported, setImported] = React.useState(false)
-  // car.imported = imported
-  const handleImportedChange = (event) => {
-    setImported(event.target.checked)
+  function handleFieldChange(event) {
+    const { name, value, type, checked } = event.target
+    const carCopy = { ...car }
+    
+    if (type === 'checkbox') {
+      carCopy[name] = checked
+    } else {
+      carCopy[name] = value
+    }
+    
+    // Validação em tempo real para alguns campos
+    const warnings = { ...fieldWarnings }
+    
+    if (name === 'selling_date' && value) {
+      const selectedDate = new Date(value)
+      const today = new Date()
+      
+      if (isBefore(selectedDate, storeOpeningDate)) {
+        warnings.selling_date = `⚠️ Data anterior à abertura da loja (${format(storeOpeningDate, 'dd/MM/yyyy')})`
+      } else if (isAfter(selectedDate, today)) {
+        warnings.selling_date = '⚠️ Data no futuro não permitida'
+      } else {
+        delete warnings.selling_date
+      }
+    }
+    
+    if (name === 'selling_price' && value) {
+      const price = Number(value)
+      if (price < 5000) {
+        warnings.selling_price = '⚠️ Valor abaixo do mínimo (R$ 5.000,00)'
+      } else if (price > 5000000) {
+        warnings.selling_price = '⚠️ Valor acima do máximo (R$ 5.000.000,00)'
+      } else {
+        delete warnings.selling_price
+      }
+    }
+    
+    if (name === 'year_manufacture' && value) {
+      const year = Number(value)
+      if (year < 1960) {
+        warnings.year_manufacture = '⚠️ Ano anterior a 1960 não permitido'
+      } else if (year > currentYear) {
+        warnings.year_manufacture = `⚠️ Ano futuro não permitido (máximo: ${currentYear})`
+      } else {
+        delete warnings.year_manufacture
+      }
+    }
+    
+    
+    
+    setState({ ...state, car: carCopy, formModified: true, fieldWarnings: warnings })
   }
 
-  function handleFieldChange(event) {
-    const carCopy = { ...car }
-    carCopy[event.target.name] = event.target.value
-    setState({ ...state, car: carCopy, formModified: true })
+  function handleValidationErrors(issues) {
+    const errors = {}
+    const warnings = {}
+    
+    issues.forEach(issue => {
+      const fieldName = issue.path[0]
+      const message = issue.message
+      
+      // Converte mensagens do Zod em avisos mais específicos
+      if (message.includes('anterior') || message.includes('posterior') || 
+          message.includes('futuro') || message.includes('mínimo') || 
+          message.includes('máximo')) {
+        warnings[fieldName] = `⚠️ ${message}`
+      } else {
+        errors[fieldName] = message
+      }
+    })
+    
+    setState({ ...state, inputErrors: errors, fieldWarnings: warnings })
+  }
+
+  // Função para obter mensagem de ajuda com avisos
+  const getHelperText = (fieldName, defaultText) => {
+    if (inputErrors?.[fieldName]) {
+      return `❌ ${inputErrors[fieldName]}`
+    }
+    if (fieldWarnings?.[fieldName]) {
+      return fieldWarnings[fieldName]
+    }
+    return defaultText
+  }
+
+  // Função para verificar se há erro ou aviso no campo
+  const hasIssue = (fieldName) => {
+    return Boolean(inputErrors?.[fieldName] || fieldWarnings?.[fieldName])
+  }
+
+  // Função para obter a cor do helper text
+  const getHelperTextColor = (fieldName) => {
+    if (inputErrors?.[fieldName]) return 'error.main'
+    if (fieldWarnings?.[fieldName]) return 'warning.main'
+    return 'inherit'
   }
 
   async function handleFormSubmit(event) {
-    event.preventDefault(); // Evita que a página seja recarregada
-    showWaiting(true); // Exibe a tela de espera
+    event.preventDefault()
+    showWaiting(true)
     try {
+      setState({ ...state, inputErrors: {}, fieldWarnings: {} })
 
-      if(car.selling_price === '') car.selling_price = null
+      const carData = { ...car }
 
-      // Se houver parâmetro na rota, significa que estamos modificando
-      // um cliente já existente. A requisição será enviada ao back-end
-      // usando o método PUT
-      if (params.id) await myfetch.put(`/cars/${params.id}`, car)
-      // Caso contrário, estamos criando um novo cliente, e enviaremos
-      // a requisição com o método POST
-      else await myfetch.post('/cars', car)
+      // Conversões para o formato esperado pelo back-end
+      if (carData.year_manufacture) carData.year_manufacture = Number(carData.year_manufacture)
+      
+      // selling_price é opcional - converte apenas se preenchido
+      if (carData.selling_price && carData.selling_price !== '') {
+        carData.selling_price = Number(carData.selling_price)
+      } else {
+        carData.selling_price = null
+      }
 
-      // Deu certo, vamos exbir a mensagem de feedback que, quando for
-      // fechada, vai nos mandar de volta para a listagem de clientes
+      // Garante que imported seja booleano
+      carData.imported = Boolean(carData.imported)
+
+      if (params.id) {
+        await myfetch.put(`/cars/${params.id}`, carData)
+      } else {
+        await myfetch.post('/cars', carData)
+      }
+
       notify('Item salvo com sucesso.', 'success', 4000, () => {
         navigate('..', { relative: 'path', replace: true })
       })
     } catch (error) {
       console.error(error)
-      notify(error.message, 'error')
+      if (error.issues) {
+        handleValidationErrors(error.issues)
+        notify('Erro de validação. Verifique os campos destacados.', 'error')
+      } else {
+        notify(error.message, 'error')
+      }
     } finally {
-      // Desliga a tela de espera, seja em caso de sucesso, seja em caso de erro
       showWaiting(false)
     }
   }
 
-  /*
-    useEffect() que é executado apenas uma vez, no carregamento do componente.
-    Verifica se a rota tem parâmetro. Caso tenha, significa que estamos vindo
-    do componente de listagem por meio do botão de editar, e precisamos chamar
-    a função loadData() para buscar no back-end os dados do cliente a ser editado
-  */
   React.useEffect(() => {
     loadData()
   }, [])
@@ -133,29 +225,24 @@ export default function CarForm() {
   async function loadData() {
     showWaiting(true)
     try {
+      let carData = { ...formDefaults }
+      const customersData = await myfetch.get('/customers')
 
-      let car = { ...formDefaults }, customers = []
-
-      // Busca a lista de clientes para preencher o combo de escolha
-      // do cliente que comprou o carro
-      customers = await myfetch.get('/customers')
-
-      // Se houver parâmetro na rota, precisamos buscar o carro para
-      // ser editado
-      if(params.id) {
-
-        car = await myfetch.get(`/cars/${params.id}`)
-
-        // Converte o formato de data armazenado no banco de dados
-        // para o formato reconhecido pelo componente DatePicker
-        
-        if(car.selling_date) {
-          car.selling_date = parseISO(car.selling_date)
+      if (params.id) {
+        carData = await myfetch.get(`/cars/${params.id}`)
+        if (carData.selling_date) {
+          carData.selling_date = parseISO(carData.selling_date)
         }
+        // Garante que os valores numéricos sejam strings para os campos do formulário
+        if (carData.year_manufacture) carData.year_manufacture = String(carData.year_manufacture)
+        if (carData.selling_price) carData.selling_price = String(carData.selling_price)
       }
 
-      setState({ ...state, car, customers })
-
+      setState({ 
+        ...state, 
+        car: carData, 
+        customers: customersData 
+      })
     } catch (error) {
       console.error(error)
       notify(error.message, 'error')
@@ -165,24 +252,30 @@ export default function CarForm() {
   }
 
   async function handleBackButtonClick() {
-    if (
-      formModified &&
-      !(await askForConfirmation(
-        'Há informações não salvas. Deseja realmente sair?'
-      ))
-    )
-      return; // Sai da função sem fazer nada
-
-    // Navega de volta para a página de listagem
+    if (formModified && !(await askForConfirmation('Há informações não salvas. Deseja realmente sair?'))) {
+      return
+    }
     navigate('..', { relative: 'path', replace: true })
   }
 
   function handleKeyDown(event) {
-    if(event.key === 'Delete') {
-      const stateCopy = {...state}
-      stateCopy.car.customer_id = null
-      setState(stateCopy)
+    if (event.key === 'Delete') {
+      const carCopy = { ...car, customer_id: '' }
+      setState({ ...state, car: carCopy, formModified: true })
     }
+  }
+
+  const getFieldStyle = (fieldName, currentLength) => {
+    if (inputErrors?.[fieldName]) {
+      return { border: '1px solid red' }
+    }
+    if (fieldWarnings?.[fieldName]) {
+      return { border: '1px solid orange' }
+    }
+    if (currentLength > 20) {
+      return { border: '1px solid #ff9800' }
+    }
+    return {}
   }
 
   return (
@@ -197,6 +290,7 @@ export default function CarForm() {
 
       <Box className='form-fields'>
         <form onSubmit={handleFormSubmit}>
+          {/* Campo Brand - Obrigatório, 1-25 caracteres */}
           <TextField
             name='brand'
             label='Marca do carro'
@@ -205,9 +299,23 @@ export default function CarForm() {
             fullWidth
             value={car.brand}
             onChange={handleFieldChange}
-            helperText={inputErrors?.brand}
-            error={inputErrors?.brand}
+            helperText={getHelperText('brand', 
+              `${car.brand.length}/25 caracteres ${car.brand.length > 20 ? ' - Limite próximo!' : ' - Obrigatório (1-25 caracteres)'}`
+            )}
+            error={hasIssue('brand')}
+            inputProps={{
+              maxLength: 25,
+              style: getFieldStyle('brand', car.brand.length)
+            }}
+            FormHelperTextProps={{
+              sx: {
+                color: getHelperTextColor('brand'),
+                fontWeight: hasIssue('brand') ? 'bold' : 'normal'
+              }
+            }}
           />
+          
+          {/* Campo Model - Obrigatório, 1-25 caracteres */}
           <TextField
             name='model'
             label='Modelo do carro'
@@ -216,29 +324,49 @@ export default function CarForm() {
             fullWidth
             value={car.model}
             onChange={handleFieldChange}
-            helperText={inputErrors?.model}
-            error={inputErrors?.model}
+            helperText={getHelperText('model',
+              `${car.model.length}/25 caracteres ${car.model.length > 20 ? ' - Limite próximo!' : ' - Obrigatório (1-25 caracteres)'}`
+            )}
+            error={hasIssue('model')}
+            inputProps={{
+              maxLength: 25,
+              style: getFieldStyle('model', car.model.length)
+            }}
+            FormHelperTextProps={{
+              sx: {
+                color: getHelperTextColor('model'),
+                fontWeight: hasIssue('model') ? 'bold' : 'normal'
+              }
+            }}
           />
 
+          {/* Campo Color - Obrigatório, seleção entre cores pré-definidas */}
           <TextField
             name='color'
-            label='Color'
+            label='Cor do veículo'
             variant='filled'
             required
             fullWidth
             value={car.color}
             onChange={handleFieldChange}
             select
-            helperText={inputErrors?.state}
-            error={inputErrors?.state}
+            helperText={getHelperText('color', 'Obrigatório - Selecione uma cor')}
+            error={hasIssue('color')}
+            FormHelperTextProps={{
+              sx: {
+                color: getHelperTextColor('color'),
+                fontWeight: hasIssue('color') ? 'bold' : 'normal'
+              }
+            }}
           >
-            {colors.map((s) => (
-              <MenuItem key={s.value} value={s.value}>
-                {s.label}
+            {colors.map((color) => (
+              <MenuItem key={color.value} value={color.value}>
+                {color.label}
               </MenuItem>
             ))}
           </TextField>
 
+          {/* Campo Year Manufacture - Obrigatório, 1960-ano atual */}
           <TextField
             name='year_manufacture'
             label='Ano de fabricação'
@@ -248,8 +376,14 @@ export default function CarForm() {
             select
             value={car.year_manufacture}
             onChange={handleFieldChange}
-            helperText={inputErrors?.year_manufacture}
-            error={inputErrors?.year_manufacture}
+            helperText={getHelperText('year_manufacture', `Obrigatório - Entre 1960 e ${currentYear}`)}
+            error={hasIssue('year_manufacture')}
+            FormHelperTextProps={{
+              sx: {
+                color: getHelperTextColor('year_manufacture'),
+                fontWeight: hasIssue('year_manufacture') ? 'bold' : 'normal'
+              }
+            }}
           >
             {years.map((year) => (
               <MenuItem key={year} value={year}>
@@ -258,22 +392,22 @@ export default function CarForm() {
             ))}
           </TextField>
 
-          <div class="MuiFormControl-root">
+          {/* Campo Imported - Obrigatório, booleano */}
+          <div className="MuiFormControl-root">
             <FormControlLabel
               control={
                 <Checkbox
                   name='imported'
-                  variant='filled'
-                  value={(car.imported = imported)}
-                  checked={imported}
-                  onChange={handleImportedChange}
+                  checked={car.imported || false}
+                  onChange={handleFieldChange}
                   color='primary'
                 />
               }
-              label='Importado'
+              label='Veículo importado'
             />
           </div>
 
+          {/* Campo Plates - Obrigatório, exatamente 8 caracteres */}
           <InputMask
             mask='AAA-9$99'
             formatChars={plateMaskFormatChars}
@@ -284,20 +418,24 @@ export default function CarForm() {
             {() => (
               <TextField
                 name='plates'
-                label='Placa'
+                label='Placa do veículo'
                 variant='filled'
                 required
                 fullWidth
-                helperText={inputErrors?.phone}
-                error={inputErrors?.phone}
+                helperText={getHelperText('plates', 'Obrigatório - 8 caracteres, letras maiúsculas (ex: ABC-1234)')}
+                error={hasIssue('plates')}
+                FormHelperTextProps={{
+                  sx: {
+                    color: getHelperTextColor('plates'),
+                    fontWeight: hasIssue('plates') ? 'bold' : 'normal'
+                  }
+                }}
               />
             )}
           </InputMask>
 
-          <LocalizationProvider
-            dateAdapter={AdapterDateFns}
-            adapterLocale={ptBR}
-          >
+          {/* Campo Selling Date - Opcional */}
+          <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ptBR}>
             <DatePicker
               label='Data de venda'
               value={car.selling_date}
@@ -310,25 +448,44 @@ export default function CarForm() {
                 textField: {
                   variant: 'filled',
                   fullWidth: true,
-                  helperText: inputErrors?.selling_date,
-                  error: inputErrors?.selling_date,
+                  helperText: getHelperText('selling_date', 'Opcional - Não anterior a 20/03/2020'),
+                  error: hasIssue('selling_date'),
+                  FormHelperTextProps: {
+                    sx: {
+                      color: getHelperTextColor('selling_date'),
+                      fontWeight: hasIssue('selling_date') ? 'bold' : 'normal'
+                    }
+                  }
                 },
               }}
             />
           </LocalizationProvider>
 
+          {/* Campo Selling Price - Opcional */}
           <TextField
             name='selling_price'
-            label='Preço de venda'
+            label='Preço de venda (R$)'
             variant='filled'
             type='number'
             fullWidth
             value={car.selling_price}
             onChange={handleFieldChange}
-            helperText={inputErrors?.selling_price}
-            error={inputErrors?.selling_price}
+            helperText={getHelperText('selling_price', 'Opcional - Entre R$ 5.000,00 e R$ 5.000.000,00')}
+            error={hasIssue('selling_price')}
+            inputProps={{
+              min: 5000,
+              max: 5000000,
+              step: 0.01
+            }}
+            FormHelperTextProps={{
+              sx: {
+                color: getHelperTextColor('selling_price'),
+                fontWeight: hasIssue('selling_price') ? 'bold' : 'normal'
+              }
+            }}
           />
 
+          {/* Campo Customer - Obrigatório */}
           <TextField
             name='customer_id'
             label='Cliente'
@@ -339,8 +496,14 @@ export default function CarForm() {
             onChange={handleFieldChange}
             onKeyDown={handleKeyDown}
             select
-            helperText={inputErrors?.customer_id || 'Tecle DEL para limpar o cliente'}
-            error={inputErrors?.customer_id}
+            helperText={getHelperText('customer_id', 'Obrigatório - Selecione um cliente')}
+            error={hasIssue('customer_id')}
+            FormHelperTextProps={{
+              sx: {
+                color: getHelperTextColor('customer_id'),
+                fontWeight: hasIssue('customer_id') ? 'bold' : 'normal'
+              }
+            }}
           >
             {customers.map((c) => (
               <MenuItem key={c.id} value={c.id}>
@@ -349,24 +512,14 @@ export default function CarForm() {
             ))}
           </TextField>
 
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'space-around',
-              width: '100%',
-            }}
-          >
-            <Button variant='contained' color='secondary' type='submit'>
+          <Box sx={{ display: 'flex', justifyContent: 'space-around', width: '100%', mt: 2 }}>
+            <Button variant='contained' color='secondary' type='submit' size='large'>
               Salvar
             </Button>
-            <Button variant='outlined' onClick={handleBackButtonClick}>
+            <Button variant='outlined' onClick={handleBackButtonClick} size='large'>
               Voltar
             </Button>
           </Box>
-
-          {/*<Box sx={{ fontFamily: 'monospace', display: 'flex', width: '100%' }}>
-            {JSON.stringify(car)}
-          </Box>*/}
         </form>
       </Box>
     </>
