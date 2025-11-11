@@ -1,4 +1,6 @@
 import prisma from '../database/client.js'
+import Car from '../../models/Car.js'
+import { ZodError } from 'zod'
 
 const controller = {}     // Objeto vazio
 
@@ -12,6 +14,9 @@ controller.create = async function(req, res) {
     // do usuário autenticado
     req.body.updated_user_id = req.authUser.id
 
+    // Validação Zod (converte datas/números internamente quando necessário)
+    Car.parse(req.body)
+
     await prisma.car.create({ data: req.body })
 
     // HTTP 201: Created
@@ -19,6 +24,8 @@ controller.create = async function(req, res) {
   }
   catch(error) {
     console.error(error)
+    // Erro de validação Zod
+    if(error instanceof ZodError) return res.status(422).send(error.issues)
 
     // HTTP 500: Internal Server Error
     res.status(500).end()
@@ -84,6 +91,9 @@ controller.retrieveOne = async function(req, res) {
 controller.update = async function(req, res) {
   try {
 
+    // Validação Zod
+    Car.parse(req.body)
+
     const result = await prisma.car.update({
       where: { id: Number(req.params.id) },
       data: req.body
@@ -97,7 +107,11 @@ controller.update = async function(req, res) {
   catch(error) {
     console.error(error)
 
-    // HTTP 500: Internal Server Error
+    // Não encontrou e não atualizou ~> HTTP 404: Not Found
+    if(error?.code === 'P2025') return res.status(404).end()
+    // Erro do Zod ~> HTTP 422: Unprocessable Entity
+    if(error instanceof ZodError) return res.status(422).send(error.issues)
+    // Outros erros ~> HTTP 500: Internal Server Error
     res.status(500).end()
   }
 }
