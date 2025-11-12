@@ -1,18 +1,30 @@
 import prisma from '../database/client.js'
+import carSchema from '../validators/car.js'
 
 const controller = {}     // Objeto vazio
 
 controller.create = async function(req, res) {
   try {
 
-    // Preenche qual usuário criou o carro com o id do usuário autenticado
-    req.body.created_user_id = req.authUser.id
+    // Validação do payload antes de salvar
+    const parsed = carSchema.safeParse(req.body)
+    if(!parsed.success) {
+      const errors = {}
+      parsed.error.errors.forEach(e => {
+        const key = e.path[0] || '_'
+        errors[key] = e.message
+      })
+      return res.status(400).send({ errors })
+    }
 
-    // Preenche qual usuário modificou por último o carro com o id
-    // do usuário autenticado
-    req.body.updated_user_id = req.authUser.id
+  // Preenche qual usuário criou o carro com o id do usuário autenticado
+  parsed.data.created_user_id = req.authUser.id
 
-    await prisma.car.create({ data: req.body })
+  // Preenche qual usuário modificou por último o carro com o id
+  // do usuário autenticado
+  parsed.data.updated_user_id = req.authUser.id
+
+  await prisma.car.create({ data: parsed.data })
 
     // HTTP 201: Created
     res.status(201).end()
@@ -84,9 +96,20 @@ controller.retrieveOne = async function(req, res) {
 controller.update = async function(req, res) {
   try {
 
+    // Validação parcial (permitir atualizações parciais)
+    const parsed = carSchema.partial().safeParse(req.body)
+    if(!parsed.success) {
+      const errors = {}
+      parsed.error.errors.forEach(e => {
+        const key = e.path[0] || '_'
+        errors[key] = e.message
+      })
+      return res.status(400).send({ errors })
+    }
+
     const result = await prisma.car.update({
       where: { id: Number(req.params.id) },
-      data: req.body
+      data: parsed.data
     })
 
     // Encontrou e atualizou ~> HTTP 204: No Content

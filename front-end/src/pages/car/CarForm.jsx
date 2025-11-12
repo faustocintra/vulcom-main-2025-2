@@ -10,6 +10,7 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFnsV3'
 import { parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale/pt-BR'
 import React from 'react'
+import { z } from 'zod'
 import InputMask from 'react-input-mask'
 import { useNavigate, useParams } from 'react-router-dom'
 import myfetch from '../../lib/myfetch'
@@ -79,6 +80,34 @@ export default function CarForm() {
     years.push(year)
   }
 
+  // Zod schema (front-end) - deve espelhar as regras do back-end
+  const storeOpenDate = new Date(2020, 2, 20) // 20/03/2020
+  const carFormSchema = z.object({
+    brand: z.string().min(1, 'Marca deve ter ao menos 1 caractere').max(25, 'Marca pode ter no máximo 25 caracteres'),
+    model: z.string().min(1, 'Modelo deve ter ao menos 1 caractere').max(25, 'Modelo pode ter no máximo 25 caracteres'),
+    color: z.enum(['AMARELO','AZUL','BRANCO','CINZA','DOURADO','LARANJA','MARROM','PRATA','PRETO','ROSA','ROXO','VERDE','VERMELHO']),
+    year_manufacture: z.number().int().min(1960).max(currentYear),
+    imported: z.boolean(),
+    plates: z.string().length(8, 'Placa deve ter exatamente 8 caracteres'),
+    selling_date: z
+      .union([z.string(), z.null()])
+      .optional()
+      .transform((v) => (v ? new Date(v) : null))
+      .refine((d) => {
+        if (!d) return true
+        return d.getTime() >= storeOpenDate.getTime() && d.getTime() <= new Date().getTime()
+      }, { message: 'Data de venda deve estar entre 20/03/2020 e hoje' }),
+    selling_price: z
+      .union([z.number(), z.string()])
+      .optional()
+      .refine((v) => {
+        if (v === undefined || v === null || v === '') return true
+        const n = Number(v)
+        return !Number.isNaN(n) && n >= 5000 && n <= 5000000
+      }, { message: 'Preço de venda, se informado, deve estar entre 5.000 e 5.000.000' }),
+    customer_id: z.union([z.number(), z.string(), z.null()]).optional()
+  })
+
   const [imported, setImported] = React.useState(false)
   // car.imported = imported
   const handleImportedChange = (event) => {
@@ -95,16 +124,32 @@ export default function CarForm() {
     event.preventDefault(); // Evita que a página seja recarregada
     showWaiting(true); // Exibe a tela de espera
     try {
+      // Normaliza alguns campos antes da validação
+      const payload = { ...car, imported }
+      if (payload.selling_price === '') payload.selling_price = null
+      if (payload.selling_date instanceof Date) payload.selling_date = payload.selling_date.toISOString()
+      if (payload.year_manufacture !== '') payload.year_manufacture = Number(payload.year_manufacture)
 
-      if(car.selling_price === '') car.selling_price = null
+      // Validação via Zod (front-end)
+      const parsed = carFormSchema.safeParse(payload)
+      if (!parsed.success) {
+        const errors = {}
+        parsed.error.errors.forEach(e => {
+          const key = e.path[0] || '_'
+          errors[key] = e.message
+        })
+        setState({ ...state, inputErrors: errors })
+        showWaiting(false)
+        return
+      }
 
       // Se houver parâmetro na rota, significa que estamos modificando
       // um cliente já existente. A requisição será enviada ao back-end
       // usando o método PUT
-      if (params.id) await myfetch.put(`/cars/${params.id}`, car)
+      if (params.id) await myfetch.put(`/cars/${params.id}`, parsed.data)
       // Caso contrário, estamos criando um novo cliente, e enviaremos
       // a requisição com o método POST
-      else await myfetch.post('/cars', car)
+      else await myfetch.post('/cars', parsed.data)
 
       // Deu certo, vamos exbir a mensagem de feedback que, quando for
       // fechada, vai nos mandar de volta para a listagem de clientes
@@ -113,7 +158,11 @@ export default function CarForm() {
       })
     } catch (error) {
       console.error(error)
-      notify(error.message, 'error')
+      // Se o backend retornou erros de validação, exiba-os no formulário
+      if (error?.errors) {
+        setState({ ...state, inputErrors: error.errors })
+      }
+      notify(error.message || 'Erro ao salvar item', 'error')
     } finally {
       // Desliga a tela de espera, seja em caso de sucesso, seja em caso de erro
       showWaiting(false)
