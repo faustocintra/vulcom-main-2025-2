@@ -16,6 +16,8 @@ import myfetch from '../../lib/myfetch'
 import useConfirmDialog from '../../ui/useConfirmDialog'
 import useNotification from '../../ui/useNotification'
 import useWaiting from '../../ui/useWaiting'
+import Car from '../../models/Car.js'
+import { ZodError } from 'zod'
 
 export default function CarForm() {
   /*
@@ -91,34 +93,56 @@ export default function CarForm() {
     setState({ ...state, car: carCopy, formModified: true })
   }
 
-  async function handleFormSubmit(event) {
-    event.preventDefault(); // Evita que a página seja recarregada
-    showWaiting(true); // Exibe a tela de espera
+async function handleFormSubmit(event) {
+  event.preventDefault() // Evita que a página seja recarregada
+  showWaiting(true) // Exibe a tela de espera
+
+  try {
+    // Garantindo que valores opcionais nulos fiquem coerentes
+    if (car.selling_price === '') car.selling_price = null
+    if (car.selling_date === '') car.selling_date = null
+
+    // 🔹 Validação local com Zod (antes de enviar ao back)
     try {
-
-      if(car.selling_price === '') car.selling_price = null
-
-      // Se houver parâmetro na rota, significa que estamos modificando
-      // um cliente já existente. A requisição será enviada ao back-end
-      // usando o método PUT
-      if (params.id) await myfetch.put(`/cars/${params.id}`, car)
-      // Caso contrário, estamos criando um novo cliente, e enviaremos
-      // a requisição com o método POST
-      else await myfetch.post('/cars', car)
-
-      // Deu certo, vamos exbir a mensagem de feedback que, quando for
-      // fechada, vai nos mandar de volta para a listagem de clientes
-      notify('Item salvo com sucesso.', 'success', 4000, () => {
-        navigate('..', { relative: 'path', replace: true })
+      Car.parse({
+        ...car,
+        year_manufacture: Number(car.year_manufacture),
+        selling_date: car.selling_date ? new Date(car.selling_date) : null,
+        selling_price: car.selling_price
+          ? Number(car.selling_price)
+          : null,
+        imported: Boolean(imported),
       })
     } catch (error) {
-      console.error(error)
-      notify(error.message, 'error')
-    } finally {
-      // Desliga a tela de espera, seja em caso de sucesso, seja em caso de erro
-      showWaiting(false)
+      if (error instanceof ZodError) {
+        const inputErrors = {}
+        error.errors.forEach((err) => {
+          inputErrors[err.path[0]] = err.message
+        })
+        setState({ ...state, inputErrors })
+        showWaiting(false)
+        notify('Verifique os campos destacados.', 'error')
+        return
+      }
+      throw error
     }
+
+    // Se chegou até aqui, está validado com sucesso
+    // 🔹 Envia ao back-end (POST ou PUT)
+    if (params.id) await myfetch.put(`/cars/${params.id}`, car)
+    else await myfetch.post('/cars', car)
+
+    // Mensagem de sucesso
+    notify('Item salvo com sucesso.', 'success', 4000, () => {
+      navigate('..', { relative: 'path', replace: true })
+    })
+  } catch (error) {
+    console.error(error)
+    notify(error.message, 'error')
+  } finally {
+    showWaiting(false)
   }
+}
 
   /*
     useEffect() que é executado apenas uma vez, no carregamento do componente.

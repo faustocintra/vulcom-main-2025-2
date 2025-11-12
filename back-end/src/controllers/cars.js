@@ -1,27 +1,23 @@
 import prisma from '../database/client.js'
+import Car from '../models/Car.js'
+import { ZodError } from 'zod'
 
 const controller = {}     // Objeto vazio
 
-controller.create = async function(req, res) {
+controller.create = async function (req, res) {
   try {
+    if (req.body.selling_date) req.body.selling_date = new Date(req.body.selling_date)
+    req.body.year_manufacture = Number(req.body.year_manufacture)
+    if (req.body.selling_price) req.body.selling_price = Number(req.body.selling_price)
 
-    // Preenche qual usuário criou o carro com o id do usuário autenticado
-    req.body.created_user_id = req.authUser.id
-
-    // Preenche qual usuário modificou por último o carro com o id
-    // do usuário autenticado
-    req.body.updated_user_id = req.authUser.id
+    Car.parse(req.body)
 
     await prisma.car.create({ data: req.body })
-
-    // HTTP 201: Created
     res.status(201).end()
-  }
-  catch(error) {
+  } catch (error) {
     console.error(error)
-
-    // HTTP 500: Internal Server Error
-    res.status(500).end()
+    if (error instanceof ZodError) res.status(422).send(error.issues)
+    else res.status(500).end()
   }
 }
 
@@ -81,24 +77,24 @@ controller.retrieveOne = async function(req, res) {
   }
 }
 
-controller.update = async function(req, res) {
+controller.update = async function (req, res) {
   try {
+    if (req.body.selling_date) req.body.selling_date = new Date(req.body.selling_date)
+    req.body.year_manufacture = Number(req.body.year_manufacture)
+    if (req.body.selling_price) req.body.selling_price = Number(req.body.selling_price)
 
-    const result = await prisma.car.update({
+    Car.parse(req.body)
+
+    await prisma.car.update({
       where: { id: Number(req.params.id) },
       data: req.body
     })
-
-    // Encontrou e atualizou ~> HTTP 204: No Content
-    if(result) res.status(204).end()
-    // Não encontrou (e não atualizou) ~> HTTP 404: Not Found
-    else res.status(404).end()
-  }
-  catch(error) {
+    res.status(204).end()
+  } catch (error) {
     console.error(error)
-
-    // HTTP 500: Internal Server Error
-    res.status(500).end()
+    if (error?.code === 'P2025') res.status(404).end()
+    else if (error instanceof ZodError) res.status(422).send(error.issues)
+    else res.status(500).end()
   }
 }
 
