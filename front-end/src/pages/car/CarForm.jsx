@@ -16,6 +16,8 @@ import myfetch from '../../lib/myfetch'
 import useConfirmDialog from '../../ui/useConfirmDialog'
 import useNotification from '../../ui/useNotification'
 import useWaiting from '../../ui/useWaiting'
+import Car from '../../models/Car'
+import { ZodError } from 'zod'
 
 export default function CarForm() {
   /*
@@ -94,28 +96,53 @@ export default function CarForm() {
   async function handleFormSubmit(event) {
     event.preventDefault(); // Evita que a página seja recarregada
     showWaiting(true); // Exibe a tela de espera
-    try {
+    
+    setState({ ...state, inputErrors: {} })
+    
+try {
 
-      if(car.selling_price === '') car.selling_price = null
+      
 
-      // Se houver parâmetro na rota, significa que estamos modificando
-      // um cliente já existente. A requisição será enviada ao back-end
-      // usando o método PUT
+      // if(car.selling_price === '') car.selling_price = null
+
+
+      Car.parse(car)
+
+
       if (params.id) await myfetch.put(`/cars/${params.id}`, car)
-      // Caso contrário, estamos criando um novo cliente, e enviaremos
-      // a requisição com o método POST
       else await myfetch.post('/cars', car)
 
-      // Deu certo, vamos exbir a mensagem de feedback que, quando for
-      // fechada, vai nos mandar de volta para a listagem de clientes
       notify('Item salvo com sucesso.', 'success', 4000, () => {
         navigate('..', { relative: 'path', replace: true })
       })
     } catch (error) {
       console.error(error)
-      notify(error.message, 'error')
+
+      if(error instanceof ZodError) {
+        const newErrors = {}
+        // Formata os erros do Zod em um objeto { campo: mensagem }
+        for(let e of error.errors) {
+          newErrors[e.path[0]] = e.message
+        }
+        // Atualiza o estado com os erros para exibição no formulário
+        setState({ ...state, inputErrors: newErrors })
+        notify('O formulário contém erros.', 'error')
+      }
+      // Captura erros de validação que podem ter vindo do back-end
+      else if(error.response && error.response.status === 422) {
+        const newErrors = {}
+        for(let e of error.response.data) {
+          newErrors[e.path[0]] = e.message
+        }
+        setState({ ...state, inputErrors: newErrors })
+        notify('O formulário contém erros (verif. back-end).', 'error')
+      }
+      // Outros erros
+      else {
+        notify(error.message, 'error')
+      }
     } finally {
-      // Desliga a tela de espera, seja em caso de sucesso, seja em caso de erro
+      // Desliga a tela de espera
       showWaiting(false)
     }
   }
