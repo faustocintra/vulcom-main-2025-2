@@ -9,8 +9,13 @@ const app = express()
 
 import cors from 'cors'
 
+// Configuração do CORS
+const allowedOrigins = process.env.ALLOWED_ORIGINS === '*' 
+  ? '*' 
+  : process.env.ALLOWED_ORIGINS.split(',')
+
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS.split(','),
+  origin: allowedOrigins,
   credentials: true
 }))
 
