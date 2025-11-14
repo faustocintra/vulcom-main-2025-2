@@ -129,15 +129,27 @@ export default function CarForm() {
       if (payload.selling_price === '') payload.selling_price = null
       if (payload.selling_date instanceof Date) payload.selling_date = payload.selling_date.toISOString()
       if (payload.year_manufacture !== '') payload.year_manufacture = Number(payload.year_manufacture)
+      
+      // Remove espaços da placa (a máscara preenche com espaços)
+      if (payload.plates) payload.plates = payload.plates.trim().replace(/\s+/g, '')
+
+      console.log('Payload antes da validação:', payload)
+      console.log('Placa após limpeza:', payload.plates, 'Tamanho:', payload.plates?.length)
 
       // Validação via Zod (front-end)
       const parsed = carFormSchema.safeParse(payload)
+      console.log('Resultado da validação Zod:', parsed)
       if (!parsed.success) {
         const errors = {}
-        parsed.error.errors.forEach(e => {
-          const key = e.path[0] || '_'
-          errors[key] = e.message
-        })
+        console.log('Zod error object:', parsed.error)
+        console.log('Zod error issues:', parsed.error?.issues)
+        if (parsed.error && parsed.error.issues) {
+          parsed.error.issues.forEach(e => {
+            const key = e.path[0] || '_'
+            errors[key] = e.message
+            console.log(`Erro no campo ${key}: ${e.message}`)
+          })
+        }
         setState({ ...state, inputErrors: errors })
         showWaiting(false)
         return
@@ -337,8 +349,8 @@ export default function CarForm() {
                 variant='filled'
                 required
                 fullWidth
-                helperText={inputErrors?.phone}
-                error={inputErrors?.phone}
+                helperText={inputErrors?.plates}
+                error={!!inputErrors?.plates}
               />
             )}
           </InputMask>
