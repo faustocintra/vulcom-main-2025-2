@@ -1,5 +1,5 @@
 import prisma from '../database/client.js'
-import Car from '../models/Car.js' // NOVO IMPORT
+import Car from '../models/Car.js'
 
 const controller = {}     // Objeto vazio
 
@@ -28,7 +28,8 @@ controller.create = async function(req, res) {
       // HTTP 422: Unprocessable Entity
       res.status(422).send({
         // Mapeia os erros de validação
-        errors: error.errors.map(err => ({
+        // CORRIGIDO: Deve ser error.issues, e não error.errors
+        errors: error.issues.map(err => ({
           field: err.path.join('.'), // Nome do campo com erro
           message: err.message       // Mensagem de erro
         }))
@@ -124,7 +125,8 @@ controller.update = async function(req, res) {
       // HTTP 422: Unprocessable Entity
       res.status(422).send({
         // Mapeia os erros de validação
-        errors: error.errors.map(err => ({
+        // CORRIGIDO: Deve ser error.issues, e não error.errors
+        errors: error.issues.map(err => ({
           field: err.path.join('.'), // Nome do campo com erro
           message: err.message       // Mensagem de erro
         }))
