@@ -29,7 +29,7 @@ const limiter = rateLimit({
 })
 
 app.use(limiter)
-
+app.use(logger('dev'))
 /*********** ROTAS DA API **************/
 
 // Middleware de verificação do token de autorização

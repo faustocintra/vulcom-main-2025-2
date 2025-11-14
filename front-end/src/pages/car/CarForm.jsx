@@ -16,6 +16,8 @@ import myfetch from '../../lib/myfetch'
 import useConfirmDialog from '../../ui/useConfirmDialog'
 import useNotification from '../../ui/useNotification'
 import useWaiting from '../../ui/useWaiting'
+import Car from '../../models/Car.js'
+import { ZodError } from 'zod'
 
 export default function CarForm() {
   const formDefaults = {
@@ -71,6 +73,114 @@ export default function CarForm() {
     A: '[A-Z]',
   }
 
+
+// ✅ Função para detectar o tipo de placa (8 caracteres com hífen)
+const detectPlateType = (plate) => {
+  if (plate.length === 0) {
+    return { status: 'empty' }
+  }
+  
+  // Placa Antiga Brasileira: ABC-1234 (8 caracteres com hífen)
+  if (/^[A-Z]{3}-[0-9]{4}$/.test(plate)) {
+    return { status: 'valid_old', type: 'old' }
+  }
+  if (/^[A-Z]{3}-[0-9]{0,4}$/.test(plate) && plate.length <= 8) {
+    return { status: 'partial_old', type: 'old' }
+  }
+  
+  // Placa Mercosul: ABC-1D23 (8 caracteres com hífen)
+  if (/^[A-Z]{3}-[0-9][A-Z0-9][0-9]{2}$/.test(plate)) {
+    return { status: 'valid_mercosul', type: 'mercosul' }
+  }
+  if (/^[A-Z]{3}-[0-9][A-Z0-9]?[0-9]{0,2}$/.test(plate) && plate.length <= 8) {
+    return { status: 'partial_mercosul', type: 'mercosul' }
+  }
+  
+  return { status: 'invalid_format' }
+}
+
+// ✅ Função para validar se a placa é válida
+const isValidPlate = (plate) => {
+  const { status } = detectPlateType(plate)
+  return status.startsWith('valid_')
+}
+
+// ✅ Função para obter a cor do status da placa
+const getPlateStatusColor = (plate) => {
+  const { status } = detectPlateType(plate)
+  
+  switch (status) {
+    case 'valid_old':
+    case 'valid_mercosul':
+      return '#4caf50' // ✅ VERDE
+    case 'partial_old':
+    case 'partial_mercosul':
+      return '#ff9800' // ⚠️ LARANJA
+    case 'invalid_format':
+      return '#f44336' // ❌ VERMELHO
+    default:
+      return '#666'    // ⬜ CINZA
+  }
+}
+
+// ✅ Função para obter o estilo do campo da placa
+const getPlateFieldStyle = (plate) => {
+  const { status } = detectPlateType(plate)
+  const isEmpty = plate.length === 0
+  
+  if (isEmpty) {
+    return {
+      border: '2px solid #ccc',
+      backgroundColor: 'transparent'
+    }
+  }
+  
+  switch (status) {
+    case 'valid_old':
+    case 'valid_mercosul':
+      return {
+        border: '2px solid #4caf50',
+        
+      }
+    case 'partial_old':
+    case 'partial_mercosul':
+      return {
+        border: '2px solid #ff9800',
+        
+      }
+    case 'invalid_format':
+      return {
+        border: '2px solid #f44336',
+        
+      }
+    default:
+      return {
+        border: '2px solid #ccc',
+        backgroundColor: 'transparent'
+      }
+  }
+}
+
+// ✅ Função para formatar a placa na exibição
+const formatPlateDisplay = (plate) => {
+  const cleanPlate = plate.replace(/[^A-Z0-9]/g, '')
+  const { type } = detectPlateType(plate)
+  
+  if (cleanPlate.length <= 3) {
+    return cleanPlate
+  }
+  
+  switch (type) {
+    case 'old':
+      // ABC-1234
+      return cleanPlate.slice(0, 3) + (cleanPlate.length > 3 ? '-' + cleanPlate.slice(3) : '')
+    case 'mercosul':
+      // ABC-1D23
+      return cleanPlate.slice(0, 3) + (cleanPlate.length > 3 ? '-' + cleanPlate.slice(3) : '')
+    default:
+      return cleanPlate
+  }
+}
   const currentYear = new Date().getFullYear()
   const minYear = 1960
   const years = []
@@ -81,74 +191,72 @@ export default function CarForm() {
   function handleFieldChange(event) {
     const { name, value, type, checked } = event.target
     const carCopy = { ...car }
-    
+
     if (type === 'checkbox') {
       carCopy[name] = checked
     } else {
       carCopy[name] = value
     }
-    
+
     // Validação em tempo real para alguns campos
     const warnings = { ...fieldWarnings }
-    
+
     if (name === 'selling_date' && value) {
       const selectedDate = new Date(value)
       const today = new Date()
-      
+
       if (isBefore(selectedDate, storeOpeningDate)) {
-        warnings.selling_date = `⚠️ Data anterior à abertura da loja (${format(storeOpeningDate, 'dd/MM/yyyy')})`
+        warnings.selling_date = `❌ Data anterior à abertura da loja (${format(storeOpeningDate, 'dd/MM/yyyy')})`
       } else if (isAfter(selectedDate, today)) {
-        warnings.selling_date = '⚠️ Data no futuro não permitida'
+        warnings.selling_date = '❌ Data no futuro não permitida'
       } else {
         delete warnings.selling_date
       }
     }
-    
+
     if (name === 'selling_price' && value) {
       const price = Number(value)
       if (price < 5000) {
-        warnings.selling_price = '⚠️ Valor abaixo do mínimo (R$ 5.000,00)'
+        warnings.selling_price = '❌ Valor abaixo do mínimo (R$ 5.000,00)'
       } else if (price > 5000000) {
-        warnings.selling_price = '⚠️ Valor acima do máximo (R$ 5.000.000,00)'
+        warnings.selling_price = '❌ Valor acima do máximo (R$ 5.000.000,00)'
       } else {
         delete warnings.selling_price
       }
     }
-    
+
     if (name === 'year_manufacture' && value) {
       const year = Number(value)
       if (year < 1960) {
-        warnings.year_manufacture = '⚠️ Ano anterior a 1960 não permitido'
+        warnings.year_manufacture = '❌ Ano anterior a 1960 não permitido'
       } else if (year > currentYear) {
-        warnings.year_manufacture = `⚠️ Ano futuro não permitido (máximo: ${currentYear})`
+        warnings.year_manufacture = `❌ Ano futuro não permitido (máximo: ${currentYear})`
       } else {
         delete warnings.year_manufacture
       }
     }
-    
-    
-    
+
     setState({ ...state, car: carCopy, formModified: true, fieldWarnings: warnings })
   }
 
   function handleValidationErrors(issues) {
     const errors = {}
     const warnings = {}
-    
+
     issues.forEach(issue => {
       const fieldName = issue.path[0]
       const message = issue.message
-      
+
       // Converte mensagens do Zod em avisos mais específicos
-      if (message.includes('anterior') || message.includes('posterior') || 
-          message.includes('futuro') || message.includes('mínimo') || 
-          message.includes('máximo')) {
-        warnings[fieldName] = `⚠️ ${message}`
+      if (message.includes('anterior') || message.includes('posterior') ||
+        message.includes('futuro') || message.includes('mínimo') ||
+        message.includes('máximo')) {
+        warnings[fieldName] = `❌ ${message}`
       } else {
         errors[fieldName] = message
       }
     })
-    
+
     setState({ ...state, inputErrors: errors, fieldWarnings: warnings })
   }
 
@@ -168,11 +276,83 @@ export default function CarForm() {
     return Boolean(inputErrors?.[fieldName] || fieldWarnings?.[fieldName])
   }
 
-  // Função para obter a cor do helper text
-  const getHelperTextColor = (fieldName) => {
-    if (inputErrors?.[fieldName]) return 'error.main'
-    if (fieldWarnings?.[fieldName]) return 'warning.main'
-    return 'inherit'
+  // ✅ NOVA FUNÇÃO: Sistema de 3 cores para todos os campos
+  const getFieldStatus = (fieldName, value, maxLength = null) => {
+    // Se tem erro Zod, sempre retorna ERRO
+    if (inputErrors?.[fieldName] || fieldWarnings?.[fieldName]) {
+      return 'error'
+    }
+
+    // Para campos de texto com limite de caracteres
+    if (maxLength && typeof value === 'string') {
+      const length = value.length
+      if (length === 0) return 'empty'
+      if (length <= maxLength * 0.8) return 'good' // ✅ Até 50% - BOM
+      if (length <= maxLength * 0.99) return 'warning' // ⚠️ 50%-80% - ALERTA
+      return 'error' // ❌ Acima de 80% - ERRO
+    }
+
+    // Para campos numéricos
+    if (typeof value === 'number' || (value && !isNaN(value))) {
+      const numValue = Number(value)
+      if (fieldName === 'selling_price') {
+        if (numValue >= 5000 && numValue <= 5000000) return 'good'
+        if (numValue > 0) return 'error'
+      }
+      if (fieldName === 'year_manufacture') {
+        if (numValue >= 1960 && numValue <= currentYear) return 'good'
+        if (numValue > 0) return 'error'
+      }
+    }
+
+    // Para campos obrigatórios preenchidos
+    if (value && value !== '') return 'good'
+
+    return 'empty'
+  }
+
+  // ✅ NOVA FUNÇÃO: Cor baseada no status
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'good': return '#4caf50' // ✅ VERDE
+      case 'warning': return '#ff9800' // ⚠️ LARANJA
+      case 'error': return '#f44336' // ❌ VERMELHO
+      default: return '' // ⬜ CINZA (vazio)
+    }
+  }
+
+  // ✅ NOVA FUNÇÃO: Mensagem baseada no status
+  const getStatusMessage = (fieldName, value, maxLength = null, defaultMessage) => {
+    const status = getFieldStatus(fieldName, value, maxLength)
+
+    if (inputErrors?.[fieldName]) return `❌ ${inputErrors[fieldName]}`
+    if (fieldWarnings?.[fieldName]) return fieldWarnings[fieldName]
+
+    switch (status) {
+      case 'good':
+        if (maxLength) return `✅ ${value.length}/${maxLength} caracteres - OK`
+        return '✅ Preenchido corretamente'
+      case 'warning':
+        if (maxLength) return `⚠️ ${value.length}/${maxLength} caracteres - Limite próximo!`
+        return '⚠️ Verifique este campo'
+      case 'error':
+        if (maxLength) return `❌ ${value.length}/${maxLength} caracteres - Limite excedido!`
+        return '❌ Campo com problema'
+      default:
+        return defaultMessage
+    }
+  }
+
+  // ✅ FUNÇÃO ATUALIZADA: Estilo do campo baseado no status
+  const getFieldStyle = (fieldName, value, maxLength = null) => {
+    const status = getFieldStatus(fieldName, value, maxLength)
+    const color = getStatusColor(status)
+
+    if (status === 'empty') return {}
+    return {
+      border: `2px solid ${color}`,
+
+    }
   }
 
   async function handleFormSubmit(event) {
@@ -185,16 +365,17 @@ export default function CarForm() {
 
       // Conversões para o formato esperado pelo back-end
       if (carData.year_manufacture) carData.year_manufacture = Number(carData.year_manufacture)
-      
-      // selling_price é opcional - converte apenas se preenchido
+
       if (carData.selling_price && carData.selling_price !== '') {
         carData.selling_price = Number(carData.selling_price)
       } else {
         carData.selling_price = null
       }
 
-      // Garante que imported seja booleano
       carData.imported = Boolean(carData.imported)
+
+      // ✅ VALIDAÇÃO ZOD NO FRONTEND
+      Car.parse(carData)
 
       if (params.id) {
         await myfetch.put(`/cars/${params.id}`, carData)
@@ -207,7 +388,7 @@ export default function CarForm() {
       })
     } catch (error) {
       console.error(error)
-      if (error.issues) {
+      if (error instanceof ZodError) {
         handleValidationErrors(error.issues)
         notify('Erro de validação. Verifique os campos destacados.', 'error')
       } else {
@@ -233,15 +414,14 @@ export default function CarForm() {
         if (carData.selling_date) {
           carData.selling_date = parseISO(carData.selling_date)
         }
-        // Garante que os valores numéricos sejam strings para os campos do formulário
         if (carData.year_manufacture) carData.year_manufacture = String(carData.year_manufacture)
         if (carData.selling_price) carData.selling_price = String(carData.selling_price)
       }
 
-      setState({ 
-        ...state, 
-        car: carData, 
-        customers: customersData 
+      setState({
+        ...state,
+        car: carData,
+        customers: customersData
       })
     } catch (error) {
       console.error(error)
@@ -265,19 +445,6 @@ export default function CarForm() {
     }
   }
 
-  const getFieldStyle = (fieldName, currentLength) => {
-    if (inputErrors?.[fieldName]) {
-      return { border: '1px solid red' }
-    }
-    if (fieldWarnings?.[fieldName]) {
-      return { border: '1px solid orange' }
-    }
-    if (currentLength > 20) {
-      return { border: '1px solid #ff9800' }
-    }
-    return {}
-  }
-
   return (
     <>
       <ConfirmDialog />
@@ -299,22 +466,20 @@ export default function CarForm() {
             fullWidth
             value={car.brand}
             onChange={handleFieldChange}
-            helperText={getHelperText('brand', 
-              `${car.brand.length}/25 caracteres ${car.brand.length > 20 ? ' - Limite próximo!' : ' - Obrigatório (1-25 caracteres)'}`
-            )}
-            error={hasIssue('brand')}
+            helperText={getStatusMessage('brand', car.brand, 25, 'Obrigatório (1-25 caracteres)')}
+            error={getFieldStatus('brand', car.brand, 25) === 'error'}
             inputProps={{
               maxLength: 25,
-              style: getFieldStyle('brand', car.brand.length)
+              style: getFieldStyle('brand', car.brand, 25)
             }}
             FormHelperTextProps={{
               sx: {
-                color: getHelperTextColor('brand'),
-                fontWeight: hasIssue('brand') ? 'bold' : 'normal'
+                color: getStatusColor(getFieldStatus('brand', car.brand, 25)),
+                fontWeight: getFieldStatus('brand', car.brand, 25) !== 'empty' ? 'bold' : 'normal'
               }
             }}
           />
-          
+
           {/* Campo Model - Obrigatório, 1-25 caracteres */}
           <TextField
             name='model'
@@ -324,23 +489,21 @@ export default function CarForm() {
             fullWidth
             value={car.model}
             onChange={handleFieldChange}
-            helperText={getHelperText('model',
-              `${car.model.length}/25 caracteres ${car.model.length > 20 ? ' - Limite próximo!' : ' - Obrigatório (1-25 caracteres)'}`
-            )}
-            error={hasIssue('model')}
+            helperText={getStatusMessage('model', car.model, 25, 'Obrigatório (1-25 caracteres)')}
+            error={getFieldStatus('model', car.model, 25) === 'error'}
             inputProps={{
               maxLength: 25,
-              style: getFieldStyle('model', car.model.length)
+              style: getFieldStyle('model', car.model, 25)
             }}
             FormHelperTextProps={{
               sx: {
-                color: getHelperTextColor('model'),
-                fontWeight: hasIssue('model') ? 'bold' : 'normal'
+                color: getStatusColor(getFieldStatus('model', car.model, 25)),
+                fontWeight: getFieldStatus('model', car.model, 25) !== 'empty' ? 'bold' : 'normal'
               }
             }}
           />
 
-          {/* Campo Color - Obrigatório, seleção entre cores pré-definidas */}
+          {/* Campo Color - Obrigatório */}
           <TextField
             name='color'
             label='Cor do veículo'
@@ -350,13 +513,16 @@ export default function CarForm() {
             value={car.color}
             onChange={handleFieldChange}
             select
-            helperText={getHelperText('color', 'Obrigatório - Selecione uma cor')}
-            error={hasIssue('color')}
+            helperText={getStatusMessage('color', car.color, null, 'Obrigatório - Selecione uma cor')}
+            error={getFieldStatus('color', car.color) === 'error'}
             FormHelperTextProps={{
               sx: {
-                color: getHelperTextColor('color'),
-                fontWeight: hasIssue('color') ? 'bold' : 'normal'
+                color: getStatusColor(getFieldStatus('color', car.color)),
+                fontWeight: getFieldStatus('color', car.color) !== 'empty' ? 'bold' : 'normal'
               }
+            }}
+            SelectProps={{
+              sx: getFieldStyle('color', car.color)
             }}
           >
             {colors.map((color) => (
@@ -366,7 +532,7 @@ export default function CarForm() {
             ))}
           </TextField>
 
-          {/* Campo Year Manufacture - Obrigatório, 1960-ano atual */}
+          {/* Campo Year Manufacture - Obrigatório */}
           <TextField
             name='year_manufacture'
             label='Ano de fabricação'
@@ -376,13 +542,16 @@ export default function CarForm() {
             select
             value={car.year_manufacture}
             onChange={handleFieldChange}
-            helperText={getHelperText('year_manufacture', `Obrigatório - Entre 1960 e ${currentYear}`)}
-            error={hasIssue('year_manufacture')}
+            helperText={getStatusMessage('year_manufacture', car.year_manufacture, null, `Obrigatório - Entre 1960 e ${currentYear}`)}
+            error={getFieldStatus('year_manufacture', car.year_manufacture) === 'error'}
             FormHelperTextProps={{
               sx: {
-                color: getHelperTextColor('year_manufacture'),
-                fontWeight: hasIssue('year_manufacture') ? 'bold' : 'normal'
+                color: getStatusColor(getFieldStatus('year_manufacture', car.year_manufacture)),
+                fontWeight: getFieldStatus('year_manufacture', car.year_manufacture) !== 'empty' ? 'bold' : 'normal'
               }
+            }}
+            SelectProps={{
+              sx: getFieldStyle('year_manufacture', car.year_manufacture)
             }}
           >
             {years.map((year) => (
@@ -401,38 +570,81 @@ export default function CarForm() {
                   checked={car.imported || false}
                   onChange={handleFieldChange}
                   color='primary'
+                  sx={{
+                    color: getStatusColor(getFieldStatus('imported', car.imported)),
+                    '&.Mui-checked': {
+                      color: getStatusColor(getFieldStatus('imported', car.imported)),
+                    }
+                  }}
                 />
               }
               label='Veículo importado'
             />
           </div>
 
-          {/* Campo Plates - Obrigatório, exatamente 8 caracteres */}
-          <InputMask
-            mask='AAA-9$99'
-            formatChars={plateMaskFormatChars}
-            maskChar=' '
-            value={car.plates}
-            onChange={handleFieldChange}
-          >
-            {() => (
-              <TextField
-                name='plates'
-                label='Placa do veículo'
-                variant='filled'
-                required
-                fullWidth
-                helperText={getHelperText('plates', 'Obrigatório - 8 caracteres, letras maiúsculas (ex: ABC-1234)')}
-                error={hasIssue('plates')}
-                FormHelperTextProps={{
-                  sx: {
-                    color: getHelperTextColor('plates'),
-                    fontWeight: hasIssue('plates') ? 'bold' : 'normal'
-                  }
-                }}
-              />
-            )}
-          </InputMask>
+      
+        {/* Campo Plates - Obrigatório, 8 caracteres com hífen */}
+<InputMask
+  mask="aaa-****"
+  maskChar=""
+  value={car.plates}
+  onChange={handleFieldChange}
+  beforeMaskedValueChange={(newState, oldState, userInput) => {
+    let { value } = newState
+    
+    // Converte para maiúsculas e formata
+    value = value.toUpperCase()
+    
+    return {
+      ...newState,
+      value
+    }
+  }}
+>
+  {() => {
+    const plateType = detectPlateType(car.plates)
+    const isEmpty = car.plates.length === 0
+    const isComplete = car.plates.length === 8
+
+    return (
+      <TextField
+        name="plates"
+        label="Placa do veículo"
+        variant="filled"
+        required
+        fullWidth
+        helperText={
+          isEmpty
+            ? "Obrigatório - 8 caracteres com hífen"
+            : !isComplete
+            ? `⚠️ ${car.plates.length}/8 caracteres - Complete a placa`
+            : plateType.status === 'valid_old'
+            ? "✅ Placa antiga válida"
+            : plateType.status === 'valid_mercosul'
+            ? "✅ Placa Mercosul válida"
+            : "❌ Formato inválido - Use: ABC-1234 ou ABC-1D23"
+        }
+        error={!isEmpty && (!isComplete || plateType.status === 'invalid_format')}
+        inputProps={{
+          style: {
+            textTransform: 'uppercase',
+            fontFamily: 'monospace',
+            letterSpacing: '1px',
+            ...getPlateFieldStyle(car.plates)
+          }
+        }}
+        FormHelperTextProps={{
+          sx: {
+            color: getPlateStatusColor(car.plates),
+            fontWeight: !isEmpty ? 'bold' : 'normal',
+            fontSize: '0.75rem'
+          }
+        }}
+      />
+    )
+  }}
+</InputMask>
+
 
           {/* Campo Selling Date - Opcional */}
           <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ptBR}>
@@ -448,12 +660,13 @@ export default function CarForm() {
                 textField: {
                   variant: 'filled',
                   fullWidth: true,
-                  helperText: getHelperText('selling_date', 'Opcional - Não anterior a 20/03/2020'),
-                  error: hasIssue('selling_date'),
+                  helperText: getStatusMessage('selling_date', car.selling_date, null, 'Opcional - Não anterior a 20/03/2020'),
+                  error: getFieldStatus('selling_date', car.selling_date) === 'error',
+                  sx: getFieldStyle('selling_date', car.selling_date),
                   FormHelperTextProps: {
                     sx: {
-                      color: getHelperTextColor('selling_date'),
-                      fontWeight: hasIssue('selling_date') ? 'bold' : 'normal'
+                      color: getStatusColor(getFieldStatus('selling_date', car.selling_date)),
+                      fontWeight: getFieldStatus('selling_date', car.selling_date) !== 'empty' ? 'bold' : 'normal'
                     }
                   }
                 },
@@ -470,17 +683,18 @@ export default function CarForm() {
             fullWidth
             value={car.selling_price}
             onChange={handleFieldChange}
-            helperText={getHelperText('selling_price', 'Opcional - Entre R$ 5.000,00 e R$ 5.000.000,00')}
-            error={hasIssue('selling_price')}
+            helperText={getStatusMessage('selling_price', car.selling_price, null, 'Opcional - Entre R$ 5.000,00 e R$ 5.000.000,00')}
+            error={getFieldStatus('selling_price', car.selling_price) === 'error'}
             inputProps={{
               min: 5000,
               max: 5000000,
-              step: 0.01
+              step: 0.01,
+              style: getFieldStyle('selling_price', car.selling_price)
             }}
             FormHelperTextProps={{
               sx: {
-                color: getHelperTextColor('selling_price'),
-                fontWeight: hasIssue('selling_price') ? 'bold' : 'normal'
+                color: getStatusColor(getFieldStatus('selling_price', car.selling_price)),
+                fontWeight: getFieldStatus('selling_price', car.selling_price) !== 'empty' ? 'bold' : 'normal'
               }
             }}
           />
@@ -496,13 +710,16 @@ export default function CarForm() {
             onChange={handleFieldChange}
             onKeyDown={handleKeyDown}
             select
-            helperText={getHelperText('customer_id', 'Obrigatório - Selecione um cliente')}
-            error={hasIssue('customer_id')}
+            helperText={getStatusMessage('customer_id', car.customer_id, null, 'Obrigatório - Selecione um cliente')}
+            error={getFieldStatus('customer_id', car.customer_id) === 'error'}
             FormHelperTextProps={{
               sx: {
-                color: getHelperTextColor('customer_id'),
-                fontWeight: hasIssue('customer_id') ? 'bold' : 'normal'
+                color: getStatusColor(getFieldStatus('customer_id', car.customer_id)),
+                fontWeight: getFieldStatus('customer_id', car.customer_id) !== 'empty' ? 'bold' : 'normal'
               }
+            }}
+            SelectProps={{
+              sx: getFieldStyle('customer_id', car.customer_id)
             }}
           >
             {customers.map((c) => (

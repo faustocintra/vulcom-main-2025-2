@@ -107,7 +107,7 @@ const routes = [
     route: '/brute-force',
     description: 'Ataque de força bruta',
     element: <BruteForce />,
-    userLevel: UserLevel.ANY,
+    userLevel: UserLevel.ADMIN,
     divider: true
   },
 ]
