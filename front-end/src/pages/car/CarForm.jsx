@@ -16,6 +16,8 @@ import myfetch from '../../lib/myfetch'
 import useConfirmDialog from '../../ui/useConfirmDialog'
 import useNotification from '../../ui/useNotification'
 import useWaiting from '../../ui/useWaiting'
+import Car from '../../models/Car.js'
+import { ZodError } from 'zod'
 
 export default function CarForm() {
   /*
@@ -98,6 +100,9 @@ export default function CarForm() {
 
       if(car.selling_price === '') car.selling_price = null
 
+      // Invoca a validação do Zod
+      Car.parse(car)
+
       // Se houver parâmetro na rota, significa que estamos modificando
       // um cliente já existente. A requisição será enviada ao back-end
       // usando o método PUT
@@ -113,7 +118,17 @@ export default function CarForm() {
       })
     } catch (error) {
       console.error(error)
-      notify(error.message, 'error')
+
+      // Em caso de erro do Zod, preenchemos a variável de estado
+      // inputErrors com os erros para depois exibir abaixo de cada
+      // campo de entrada
+      if(error instanceof ZodError) {
+        const errorMessages = {}
+        for(let i of error.issues) errorMessages[i.path[0]] = i.message
+        setState({ ...state, inputErrors: errorMessages })
+        notify('Há campos com valores inválidos. Verifique.', 'error')
+      }
+      else notify(error.message, 'error')
     } finally {
       // Desliga a tela de espera, seja em caso de sucesso, seja em caso de erro
       showWaiting(false)

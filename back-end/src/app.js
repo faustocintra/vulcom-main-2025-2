@@ -34,7 +34,7 @@ app.use(limiter)
 
 // Middleware de verificação do token de autorização
 import auth from './middleware/auth.js'
-app.use(auth)
+// app.use(auth)
 
 import carsRouter from './routes/cars.js'
 app.use('/cars', carsRouter)
