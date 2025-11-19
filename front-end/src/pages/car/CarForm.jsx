@@ -16,6 +16,8 @@ import myfetch from '../../lib/myfetch'
 import useConfirmDialog from '../../ui/useConfirmDialog'
 import useNotification from '../../ui/useNotification'
 import useWaiting from '../../ui/useWaiting'
+import Car from '../../models/Car.js'
+import { ZodError } from 'zod'
 
 export default function CarForm() {
   /*
@@ -79,15 +81,10 @@ export default function CarForm() {
     years.push(year)
   }
 
-  const [imported, setImported] = React.useState(false)
-  // car.imported = imported
-  const handleImportedChange = (event) => {
-    setImported(event.target.checked)
-  }
-
   function handleFieldChange(event) {
+    const { name, value, type, checked } = event.target
     const carCopy = { ...car }
-    carCopy[event.target.name] = event.target.value
+    carCopy[name] = type === 'checkbox' ? checked : value
     setState({ ...state, car: carCopy, formModified: true })
   }
 
@@ -95,16 +92,24 @@ export default function CarForm() {
     event.preventDefault(); // Evita que a página seja recarregada
     showWaiting(true); // Exibe a tela de espera
     try {
+      const carToValidate = { ...car }
 
-      if(car.selling_price === '') car.selling_price = null
+      // Ajustes de tipo antes da validação
+      if(carToValidate.year_manufacture) carToValidate.year_manufacture = Number(carToValidate.year_manufacture)
+      if(carToValidate.selling_price) carToValidate.selling_price = Number(carToValidate.selling_price)
+      else carToValidate.selling_price = null // Garante que seja nulo se vazio
+
+      if(!carToValidate.selling_date) carToValidate.selling_date = null
+
+      Car.parse(carToValidate)
 
       // Se houver parâmetro na rota, significa que estamos modificando
       // um cliente já existente. A requisição será enviada ao back-end
       // usando o método PUT
-      if (params.id) await myfetch.put(`/cars/${params.id}`, car)
+      if (params.id) await myfetch.put(`/cars/${params.id}`, carToValidate)
       // Caso contrário, estamos criando um novo cliente, e enviaremos
       // a requisição com o método POST
-      else await myfetch.post('/cars', car)
+      else await myfetch.post('/cars', carToValidate)
 
       // Deu certo, vamos exbir a mensagem de feedback que, quando for
       // fechada, vai nos mandar de volta para a listagem de clientes
@@ -113,7 +118,16 @@ export default function CarForm() {
       })
     } catch (error) {
       console.error(error)
-      notify(error.message, 'error')
+      if (error instanceof ZodError) {
+        const errorMessages = {}
+        for (let issue of error.issues) {
+          errorMessages[issue.path[0]] = issue.message
+        }
+        setState({ ...state, inputErrors: errorMessages })
+        notify('Há campos com valores inválidos. Verifique.', 'error')
+      } else {
+        notify(error.message, 'error')
+      }
     } finally {
       // Desliga a tela de espera, seja em caso de sucesso, seja em caso de erro
       showWaiting(false)
@@ -206,7 +220,7 @@ export default function CarForm() {
             value={car.brand}
             onChange={handleFieldChange}
             helperText={inputErrors?.brand}
-            error={inputErrors?.brand}
+            error={!!inputErrors?.brand}
           />
           <TextField
             name='model'
@@ -217,7 +231,7 @@ export default function CarForm() {
             value={car.model}
             onChange={handleFieldChange}
             helperText={inputErrors?.model}
-            error={inputErrors?.model}
+            error={!!inputErrors?.model}
           />
 
           <TextField
@@ -229,8 +243,8 @@ export default function CarForm() {
             value={car.color}
             onChange={handleFieldChange}
             select
-            helperText={inputErrors?.state}
-            error={inputErrors?.state}
+            helperText={inputErrors?.color}
+            error={!!inputErrors?.color}
           >
             {colors.map((s) => (
               <MenuItem key={s.value} value={s.value}>
@@ -249,7 +263,7 @@ export default function CarForm() {
             value={car.year_manufacture}
             onChange={handleFieldChange}
             helperText={inputErrors?.year_manufacture}
-            error={inputErrors?.year_manufacture}
+            error={!!inputErrors?.year_manufacture}
           >
             {years.map((year) => (
               <MenuItem key={year} value={year}>
@@ -258,21 +272,17 @@ export default function CarForm() {
             ))}
           </TextField>
 
-          <div class="MuiFormControl-root">
-            <FormControlLabel
-              control={
-                <Checkbox
-                  name='imported'
-                  variant='filled'
-                  value={(car.imported = imported)}
-                  checked={imported}
-                  onChange={handleImportedChange}
-                  color='primary'
-                />
-              }
-              label='Importado'
-            />
-          </div>
+          <FormControlLabel
+            control={
+              <Checkbox
+                name='imported'
+                checked={car.imported || false}
+                onChange={handleFieldChange}
+                color='primary'
+              />
+            }
+            label='Importado'
+          />
 
           <InputMask
             mask='AAA-9$99'
@@ -288,8 +298,8 @@ export default function CarForm() {
                 variant='filled'
                 required
                 fullWidth
-                helperText={inputErrors?.phone}
-                error={inputErrors?.phone}
+                helperText={inputErrors?.plates}
+                error={!!inputErrors?.plates}
               />
             )}
           </InputMask>
@@ -311,7 +321,7 @@ export default function CarForm() {
                   variant: 'filled',
                   fullWidth: true,
                   helperText: inputErrors?.selling_date,
-                  error: inputErrors?.selling_date,
+                  error: !!inputErrors?.selling_date,
                 },
               }}
             />
@@ -326,7 +336,7 @@ export default function CarForm() {
             value={car.selling_price}
             onChange={handleFieldChange}
             helperText={inputErrors?.selling_price}
-            error={inputErrors?.selling_price}
+            error={!!inputErrors?.selling_price}
           />
 
           <TextField
@@ -340,7 +350,7 @@ export default function CarForm() {
             onKeyDown={handleKeyDown}
             select
             helperText={inputErrors?.customer_id || 'Tecle DEL para limpar o cliente'}
-            error={inputErrors?.customer_id}
+            error={!!inputErrors?.customer_id}
           >
             {customers.map((c) => (
               <MenuItem key={c.id} value={c.id}>
