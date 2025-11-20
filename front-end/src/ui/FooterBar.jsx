@@ -24,7 +24,7 @@ export default function FooterBar() {
           }
         }}
       >
-        Desenvolvido e mantido com <CoffeeIcon fontSize="small" /> por <a href="mailto:professor@faustocintra.com.br">Prof. Fausto Cintra</a>
+        Desenvolvido e mantido com <CoffeeIcon fontSize="small" /> por Sheila Alves de Araujo (<a href="mailto:sheila.silva12@fatec.sp.gov.br">sheila.silva12@fatec.sp.gov.br</a>)
       </Typography>
     </Toolbar>
   )

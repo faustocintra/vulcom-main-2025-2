@@ -53,12 +53,25 @@ export default function Login() {
     showWaiting(true)
     try {
 
+      // Validação básica dos campos para evitar requests com valores vazios
+      const trimmed = String(email ?? '').trim()
+      if(!trimmed) {
+        showWaiting(false)
+        notify('Informe nome de usuário ou e-mail.', 'error')
+        return
+      }
+      if(!password) {
+        showWaiting(false)
+        notify('Informe a senha.', 'error')
+        return
+      }
+
       const loginData = { password }
 
-      if(email.includes('@')) loginData.email = email
+      if(trimmed.includes('@')) loginData.email = trimmed
       // Se o valor da variável email não contiver @, será tratado
       // como um username
-      else loginData.username = email
+      else loginData.username = trimmed
 
       // console.log({ loginData })
 

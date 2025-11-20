@@ -69,9 +69,9 @@ export default function CarForm() {
   ]
 
   const plateMaskFormatChars = {
-    9: '[0-9]', // somente dígitos
-    $: '[0-9A-J]', // dígito de 0 a 9 ou uma letra de A a J.
-    A: '[A-Z]', //  letra maiúscula de A a Z.
+    '9': '[0-9]', // somente dígitos
+    '$': '[0-9A-Ja-j]', // dígito de 0 a 9 ou uma letra de A a J (maiúscula ou minúscula).
+    'A': '[A-Za-z]', // letra de A a Z (maiúscula ou minúscula).
   }
 
   const currentYear = new Date().getFullYear()
@@ -82,9 +82,13 @@ export default function CarForm() {
   }
 
   const [imported, setImported] = React.useState(false)
-  // car.imported = imported
+  // Mantém o estado `imported` e também atualiza `car.imported`
   const handleImportedChange = (event) => {
-    setImported(event.target.checked)
+    const checked = event.target.checked
+    setImported(checked)
+    const carCopy = { ...car }
+    carCopy.imported = checked
+    setState({ ...state, car: carCopy, formModified: true })
   }
 
   function handleFieldChange(event) {
@@ -166,6 +170,8 @@ export default function CarForm() {
         if(car.selling_date) {
           car.selling_date = parseISO(car.selling_date)
         }
+        // Sincroniza o checkbox de "imported" com o valor carregado
+        setImported(!!car.imported)
       }
 
       setState({ ...state, car, customers })
@@ -197,6 +203,69 @@ export default function CarForm() {
       stateCopy.car.customer_id = null
       setState(stateCopy)
     }
+  }
+
+  // Garante que a placa seja armazenada em maiúsculas e atualiza o estado
+  function handlePlateChange(event) {
+    // converte para string e maiúsculas
+    const value = String(event.target.value).toUpperCase()
+    const carCopy = { ...car }
+    carCopy['plates'] = value
+    setState({ ...state, car: carCopy, formModified: true })
+  }
+
+  // Normaliza o valor do preço de venda: aceita separadores de milhares
+  // como '.' e vírgula decimal ',' e armazena a versão normalizada.
+  function handlePriceChange(event) {
+    let raw = String(event.target.value ?? '')
+    raw = raw.trim()
+
+    if(raw === '') {
+      const carCopy = { ...car }
+      carCopy['selling_price'] = ''
+      setState({ ...state, car: carCopy, formModified: true })
+      return
+    }
+
+    // Se contiver tanto '.' quanto ',' assume-se formato brasileiro: '.' milhares e ',' decimal
+    let normalized = raw
+    if(/\.|,/.test(raw)) {
+      const hasDot = raw.indexOf('.') !== -1
+      const hasComma = raw.indexOf(',') !== -1
+
+      if(hasDot && hasComma) {
+        // Ex.: 5.000,50 -> remove pontos e troca vírgula por ponto
+        normalized = raw.replace(/\./g, '').replace(/,/g, '.')
+      }
+      else if(hasComma && !hasDot) {
+        // Pode ser 5000,50 (decimal) ou 5,000 (milhares com vírgula) -> inspeciona parte após vírgula
+        const parts = raw.split(',')
+        if(parts[1] && parts[1].length === 3) {
+          // ex.: 5,000 -> trata como milhares
+          normalized = raw.replace(/,/g, '')
+        }
+        else {
+          // ex.: 5000,50 -> trata como decimal
+          normalized = raw.replace(/,/g, '.')
+        }
+      }
+      else if(hasDot && !hasComma) {
+        // Pode ser 5000.50 (decimal) ou 5.000 (milhares com ponto)
+        const parts = raw.split('.')
+        if(parts[1] && parts[1].length === 3) {
+          // ex.: 5.000 -> trata como milhares
+          normalized = raw.replace(/\./g, '')
+        }
+        else {
+          // ex.: 5000.50 -> trata como decimal
+          normalized = raw
+        }
+      }
+    }
+
+    const carCopy = { ...car }
+    carCopy['selling_price'] = normalized
+    setState({ ...state, car: carCopy, formModified: true })
   }
 
   return (
@@ -278,7 +347,6 @@ export default function CarForm() {
                 <Checkbox
                   name='imported'
                   variant='filled'
-                  value={(car.imported = imported)}
                   checked={imported}
                   onChange={handleImportedChange}
                   color='primary'
@@ -289,21 +357,22 @@ export default function CarForm() {
           </div>
 
           <InputMask
-            mask='AAA-9$99'
+            mask="AAA-9$99"
             formatChars={plateMaskFormatChars}
-            maskChar=' '
+            maskChar='_'
             value={car.plates}
-            onChange={handleFieldChange}
+            onChange={handlePlateChange}
           >
-            {() => (
+            {(inputProps) => (
               <TextField
+                {...inputProps}
                 name='plates'
                 label='Placa'
                 variant='filled'
                 required
                 fullWidth
-                helperText={inputErrors?.phone}
-                error={inputErrors?.phone}
+                helperText={inputErrors?.plates}
+                error={!!inputErrors?.plates}
               />
             )}
           </InputMask>
@@ -335,10 +404,11 @@ export default function CarForm() {
             name='selling_price'
             label='Preço de venda'
             variant='filled'
-            type='number'
+            type='text'
+            inputProps={{ inputMode: 'numeric' }}
             fullWidth
             value={car.selling_price}
-            onChange={handleFieldChange}
+            onChange={handlePriceChange}
             helperText={inputErrors?.selling_price}
             error={inputErrors?.selling_price}
           />

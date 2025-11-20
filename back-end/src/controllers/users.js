@@ -185,21 +185,25 @@ controller.login = async function(req, res) {
       )
 
       // Formamos o cookie para enviar ao front-end
+      // Em desenvolvimento usando HTTP não podemos definir 'secure: true'
+      // porque o navegador ignora cookies Secure em conexões não-HTTPS.
+      // Usamos secure apenas em produção.
+      const isProd = process.env.NODE_ENV === 'production'
       res.cookie(process.env.AUTH_COOKIE_NAME, token, {
         httpOnly: true, // O cookie ficará inacessível para o JS no front-end
-        secure: true,   // O cookie será criptografado em conexões https
-        sameSite: 'None',
+        secure: isProd, // true apenas em produção (HTTPS)
+        sameSite: isProd ? 'None' : 'Lax',
         path: '/',
-        maxAge: 24 * 60 * 60 * 100  // 24h
+        maxAge: 24 * 60 * 60 * 1000  // 24h (ms)
       })
 
-      // Cookie não HTTP-only, acessível via JS no front-end
+      // Cookie não HTTP-only, acessível via JS no front-end (apenas para testes)
       res.cookie('not-http-only', 'Este-cookie-NAO-eh-HTTP-Only', {
         httpOnly: false,
-        secure: true,   // O cookie será criptografado em conexões https
-        sameSite: 'None',
+        secure: isProd,
+        sameSite: isProd ? 'None' : 'Lax',
         path: '/',
-        maxAge: 24 * 60 * 60 * 100  // 24h
+        maxAge: 24 * 60 * 60 * 1000  // 24h (ms)
       })
 
         // Retorna apenas o usuário autenticado, sem o token
