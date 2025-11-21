@@ -305,27 +305,29 @@ export default function CarForm() {
             error={!!inputErrors?.imported}
           />
 
-          <InputMask
-            mask='AAA-9$99'
-            formatChars={plateMaskFormatChars}
-            maskChar=' '
-            value={car.plates}
-            onChange={handleFieldChange}
-          >
-            {() => (
-              <TextField
-                name='plates'
-                label='Placa'
-                variant='filled'
-                required
-                fullWidth
-                helperText={inputErrors?.plates}
-                error={!!inputErrors?.plates}
-              />
-            )}
-          </InputMask>
-
-          <LocalizationProvider
+<InputMask
+  mask='AAA-9$99'
+  formatChars={plateMaskFormatChars}
+  maskChar=' '
+  name='plates'
+  value={car.plates}
+  onChange={handleFieldChange}
+>
+  {({ inputRef, ...maskProps }) => (
+    <TextField
+      {...maskProps}
+      // Passa a ref do InputMask
+      inputRef={inputRef}
+      label='Placa'
+      variant='filled'
+      required
+      fullWidth
+      // Props de erro
+      helperText={inputErrors?.plates}
+      error={!!inputErrors?.plates}
+    />
+  )}
+</InputMask>          <LocalizationProvider
             dateAdapter={AdapterDateFns}
             adapterLocale={ptBR}
           >

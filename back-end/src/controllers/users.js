@@ -229,10 +229,13 @@ controller.login = async function(req, res) {
 
 
 controller.me = function(req, res) {
-      // Retorna APENAS o usuário autenticado com
-      // HTTP 200: OK (implícito)
-      res.send({user})
+      // O middleware de autenticação já colocou as informações do usuário
+      // autenticado em req.authUser. Portanto, basta retorná-las
+      if(req.authUser) res.send(req.authUser)
 
+      // Se, por algum motivo, o usuário autenticado não estiver presente,
+      // retorna HTTP 401: Unauthorized
+      else res.status(401).end()
 }
 
 controller.logout = function(req, res) {
