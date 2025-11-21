@@ -1,18 +1,28 @@
 import prisma from '../database/client.js'
+import { ZodError } from 'zod'
+import Car from '../models/Car.js'
 
 const controller = {}     // Objeto vazio
 
 controller.create = async function(req, res) {
   try {
 
+    // Cria uma cópia dos dados recebidos para adicionar os IDs do usuário
+    const dados = { ...req.body }
+
     // Preenche qual usuário criou o carro com o id do usuário autenticado
-    req.body.created_user_id = req.authUser.id
+    // Se não houver usuário autenticado (middleware desabilitado), usa ID 1 como padrão
+    dados.created_user_id = req.authUser?.id || 1
 
     // Preenche qual usuário modificou por último o carro com o id
     // do usuário autenticado
-    req.body.updated_user_id = req.authUser.id
+    dados.updated_user_id = req.authUser?.id || 1
 
-    await prisma.car.create({ data: req.body })
+    // Invoca a validação do modelo do Zod para os dados que
+    // o cliente enviou no corpo da requisição (não faz INSERT ainda)
+    const dadosValidados = Car.parse(dados)
+
+    await prisma.car.create({ data: dadosValidados })
 
     // HTTP 201: Created
     res.status(201).end()
@@ -20,8 +30,10 @@ controller.create = async function(req, res) {
   catch(error) {
     console.error(error)
 
-    // HTTP 500: Internal Server Error
-    res.status(500).end()
+    // Se for erro de validação do Zod, retorna HTTP 422
+    if(error instanceof ZodError) res.status(422).send(error.issues)
+    // Outros tipos de erro ~> HTTP 500
+    else res.status(500).end()
   }
 }
 

@@ -12,10 +12,12 @@ import { ptBR } from 'date-fns/locale/pt-BR'
 import React from 'react'
 import InputMask from 'react-input-mask'
 import { useNavigate, useParams } from 'react-router-dom'
+import { ZodError } from 'zod'
 import myfetch from '../../lib/myfetch'
 import useConfirmDialog from '../../ui/useConfirmDialog'
 import useNotification from '../../ui/useNotification'
 import useWaiting from '../../ui/useWaiting'
+import Car from '../../models/Car'
 
 export default function CarForm() {
   /*
@@ -93,18 +95,40 @@ export default function CarForm() {
 
   async function handleFormSubmit(event) {
     event.preventDefault(); // Evita que a página seja recarregada
-    showWaiting(true); // Exibe a tela de espera
+    
     try {
-
       if(car.selling_price === '') car.selling_price = null
+
+      // Validar dados com Zod antes de enviar
+      const dadosValidados = Car.parse(car)
+      
+    } catch (error) {
+      console.error(error)
+      
+      // Se houver erro de validação do Zod, mostra os erros e retorna SEM enviar
+      if (error instanceof ZodError) {
+        const erros = {}
+        error.issues.forEach(issue => {
+          erros[issue.path[0]] = issue.message
+        })
+        setState({ ...state, inputErrors: erros })
+        notify('Há erros no formulário. Verifique os campos.', 'error')
+        return  // IMPORTANTE: retorna sem fazer o POST/PUT
+      }
+    }
+    
+    // Se chegou aqui, passou na validação, agora pode enviar
+    showWaiting(true)
+    try {
+      const dadosValidados = Car.parse(car)
 
       // Se houver parâmetro na rota, significa que estamos modificando
       // um cliente já existente. A requisição será enviada ao back-end
       // usando o método PUT
-      if (params.id) await myfetch.put(`/cars/${params.id}`, car)
+      if (params.id) await myfetch.put(`/cars/${params.id}`, dadosValidados)
       // Caso contrário, estamos criando um novo cliente, e enviaremos
       // a requisição com o método POST
-      else await myfetch.post('/cars', car)
+      else await myfetch.post('/cars', dadosValidados)
 
       // Deu certo, vamos exbir a mensagem de feedback que, quando for
       // fechada, vai nos mandar de volta para a listagem de clientes
@@ -113,7 +137,19 @@ export default function CarForm() {
       })
     } catch (error) {
       console.error(error)
-      notify(error.message, 'error')
+      
+      // Verificar se é erro 422 do servidor (back-end)
+      if (error.status === 422 && error.validationErrors) {
+        const erros = {}
+        error.validationErrors.forEach(issue => {
+          erros[issue.path[0]] = issue.message
+        })
+        setState({ ...state, inputErrors: erros })
+        notify('Há erros nos dados. Verifique os campos.', 'error')
+      }
+      else {
+        notify(error.message, 'error')
+      }
     } finally {
       // Desliga a tela de espera, seja em caso de sucesso, seja em caso de erro
       showWaiting(false)

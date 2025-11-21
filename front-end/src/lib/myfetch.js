@@ -45,6 +45,9 @@ function getErrorDescription(response) {
 
     case 403:
       return 'ERRO: acesso não autorizado'
+    
+    case 422:   // Unprocessable Entity
+      return 'ERRO: dados inválidos'
 
     case 500:
       return 'ERRO: mau funcionamento do servidor remoto'
@@ -55,12 +58,25 @@ function getErrorDescription(response) {
   }
 }
 
-function processResponse(response) {
+async function processResponse(response) {
   if(response.ok) {
     const isJson = response.headers.get('content-type')?.includes('application/json')
     if(isJson) return response.json()
     else return true
-  } else throw new HttpError(response.status, getErrorDescription(response))
+  } else {
+    // Se for erro 422, tenta capturar os detalhes dos erros do Zod
+    if(response.status === 422) {
+      try {
+        const errors = await response.json()
+        const error = new HttpError(response.status, getErrorDescription(response))
+        error.validationErrors = errors
+        throw error
+      } catch (e) {
+        throw new HttpError(response.status, getErrorDescription(response))
+      }
+    }
+    throw new HttpError(response.status, getErrorDescription(response))
+  }
 }
 
 myfetch.post = async function(path, body) {
