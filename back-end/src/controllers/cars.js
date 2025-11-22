@@ -1,18 +1,19 @@
 import prisma from '../database/client.js'
-import Car from '../models/Car.js'     
-import { ZodError } from 'zod'         
-const controller = {}     // Objeto vazio
+import Car from '../models/Car.js'
+import { ZodError } from 'zod'
+
+const controller = {}
 
 controller.create = async function(req, res) {
-try {
-    
-    Car.parse(req.body)
+  try {
+    // 1. IMPORTANTE: Capture os dados tratados pelo Zod
+    // Isso garante que números venham como números e vazios como null
+    req.body = Car.parse(req.body)
 
     // Preenche qual usuário criou o carro com o id do usuário autenticado
     req.body.created_user_id = req.authUser.id
 
-    // Preenche qual usuário modificou por último o carro com o id
-    // do usuário autenticado
+    // Preenche qual usuário modificou por último
     req.body.updated_user_id = req.authUser.id
 
     await prisma.car.create({ data: req.body })
@@ -23,22 +24,21 @@ try {
   catch(error) {
     console.error(error)
 
-    // 4. CAPTURAR ERROS DE VALIDAÇÃO ZOD
-    if(error instanceof ZodError) {
-      // HTTP 422: Unprocessable Entity
-      // Retorna um array com os erros de validação
-      res.status(422).send(error.errors)
+    if (error instanceof ZodError || error.name === 'ZodError') {
+      const validationErrors = error.errors || error.issues
+      res.status(422).send(validationErrors)
     }
     else {
-      // HTTP 500: Internal Server Error
-      res.status(500).end()
+      res.status(500).send({
+        message: 'Ocorreu um erro interno no servidor.',
+        details: error.message
+      })
     }
   }
 }
 
 controller.retrieveAll = async function(req, res) {
   try {
-
     const includedRels = req.query.include?.split(',') ?? []
     
     const result = await prisma.car.findMany({
@@ -54,20 +54,16 @@ controller.retrieveAll = async function(req, res) {
       }
     })
 
-    // HTTP 200: OK (implícito)
     res.send(result)
   }
   catch(error) {
     console.error(error)
-
-    // HTTP 500: Internal Server Error
     res.status(500).end()
   }
 }
 
 controller.retrieveOne = async function(req, res) {
   try {
-
     const includedRels = req.query.include?.split(',') ?? []
 
     const result = await prisma.car.findUnique({
@@ -79,46 +75,43 @@ controller.retrieveOne = async function(req, res) {
       }
     })
 
-    // Encontrou ~> retorna HTTP 200: OK (implícito)
     if(result) res.send(result)
-    // Não encontrou ~> retorna HTTP 404: Not Found
     else res.status(404).end()
   }
   catch(error) {
     console.error(error)
-
-    // HTTP 500: Internal Server Error
     res.status(500).end()
   }
 }
 
 controller.update = async function(req, res) {
-try {
+  try {
+    // 1. Capture os dados tratados pelo Zod
+    req.body = Car.parse(req.body)
 
-    // 5. ADICIONAR VALIDAÇÃO ANTES DE QUALQUER LÓGICA
-    Car.parse(req.body)
+    // 2. IMPORTANTE: Atualize quem fez a alteração
+    req.body.updated_user_id = req.authUser.id
 
     const result = await prisma.car.update({
       where: { id: Number(req.params.id) },
       data: req.body
     })
 
-    // Encontrou e atualizou ~> HTTP 204: No Content
     if(result) res.status(204).end()
-    // Não encontrou (e não atualizou) ~> HTTP 404: Not Found
     else res.status(404).end()
   }
   catch(error) {
     console.error(error)
 
-    // 6. CAPTURAR ERROS DE VALIDAÇÃO ZOD
-    if(error instanceof ZodError) {
-      // HTTP 422: Unprocessable Entity
-      res.status(422).send(error.errors)
+    if (error instanceof ZodError || error.name === 'ZodError') {
+      const validationErrors = error.errors || error.issues
+      res.status(422).send(validationErrors)
     }
     else {
-      // HTTP 500: Internal Server Error
-      res.status(500).end()
+      res.status(500).send({
+        message: 'Ocorreu um erro interno no servidor.',
+        details: error.message
+      })
     }
   }
 }
@@ -128,20 +121,14 @@ controller.delete = async function(req, res) {
     await prisma.car.delete({
       where: { id: Number(req.params.id) }
     })
-
-    // Encontrou e excluiu ~> HTTP 204: No Content
     res.status(204).end()
   }
   catch(error) {
     if(error?.code === 'P2025') {
-      // Não encontrou e não excluiu ~> HTTP 404: Not Found
       res.status(404).end()
     }
     else {
-      // Outros tipos de erro
       console.error(error)
-
-      // HTTP 500: Internal Server Error
       res.status(500).end()
     }
   }

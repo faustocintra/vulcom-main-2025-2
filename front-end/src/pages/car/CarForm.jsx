@@ -8,7 +8,7 @@ import Typography from '@mui/material/Typography'
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers'
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFnsV3'
 import { parseISO } from 'date-fns'
-import { ptBR } from 'date-fns/locale/pt-BR'
+import { ptBR } from 'date-fns/locale/pt-BR' // Se der erro aqui, tente: import { ptBR } from 'date-fns/locale'
 import React from 'react'
 import InputMask from 'react-input-mask'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -20,12 +20,6 @@ import Car from '../../models/Car'
 import { ZodError } from 'zod'
 
 export default function CarForm() {
-  /*
-    Por padrão, todos os campos do nosso formulário terão como
-    valor inicial uma string vazia. A exceção é o campo birth_date
-    que, devido ao funcionamento do componente DatePicker, deve
-    iniciar valendo null.
-  */
   const formDefaults = {
     brand: '',
     model: '',
@@ -34,6 +28,7 @@ export default function CarForm() {
     imported: false,
     plates: '',
     selling_date: null,
+    selling_price: '', // Garanta que comece como string vazia
     customer_id: ''
   }
 
@@ -69,9 +64,9 @@ export default function CarForm() {
   ]
 
   const plateMaskFormatChars = {
-    9: '[0-9]', // somente dígitos
-    $: '[0-9A-J]', // dígito de 0 a 9 ou uma letra de A a J.
-    A: '[A-Z]', //  letra maiúscula de A a Z.
+    9: '[0-9]', 
+    $: '[0-9A-J]', 
+    A: '[A-Z]', 
   }
 
   const currentYear = new Date().getFullYear()
@@ -82,7 +77,7 @@ export default function CarForm() {
   }
 
   const [imported, setImported] = React.useState(false)
-  // car.imported = imported
+  
   const handleImportedChange = (event) => {
     setImported(event.target.checked)
   }
@@ -93,24 +88,21 @@ export default function CarForm() {
     setState({ ...state, car: carCopy, formModified: true })
   }
 
-  async function handleFormSubmit(event) {
-    event.preventDefault(); // Evita que a página seja recarregada
-    showWaiting(true); // Exibe a tela de espera
+async function handleFormSubmit(event) {
+    event.preventDefault(); 
+    showWaiting(true);
     
+    // Limpa erros antes de validar
     setState({ ...state, inputErrors: {} })
     
-try {
+    try {
+      // Validação Frontend (Zod)
+      // Parse retorna os dados convertidos (ex: string numérica vira number)
+      const carToSend = Car.parse(car)
 
-      
-
-      // if(car.selling_price === '') car.selling_price = null
-
-
-      Car.parse(car)
-
-
-      if (params.id) await myfetch.put(`/cars/${params.id}`, car)
-      else await myfetch.post('/cars', car)
+      // Envia os dados validados para o backend
+      if (params.id) await myfetch.put(`/cars/${params.id}`, carToSend)
+      else await myfetch.post('/cars', carToSend)
 
       notify('Item salvo com sucesso.', 'success', 4000, () => {
         navigate('..', { relative: 'path', replace: true })
@@ -118,41 +110,41 @@ try {
     } catch (error) {
       console.error(error)
 
+      // --- CORREÇÃO AQUI ---
       if(error instanceof ZodError) {
         const newErrors = {}
-        // Formata os erros do Zod em um objeto { campo: mensagem }
-        for(let e of error.errors) {
+        
+        // Tenta pegar a lista de erros de .issues (propriedade interna) 
+        // ou .errors (alias) para garantir que funcione em qualquer versão.
+        const errorList = error.issues || error.errors || []
+
+        for(let e of errorList) {
+          // Mapeia o erro para o campo correspondente (ex: 'brand', 'model')
           newErrors[e.path[0]] = e.message
         }
-        // Atualiza o estado com os erros para exibição no formulário
+        
         setState({ ...state, inputErrors: newErrors })
-        notify('O formulário contém erros.', 'error')
+        notify('Por favor, corrija os erros no formulário.', 'error')
       }
-      // Captura erros de validação que podem ter vindo do back-end
+      // Tratamento de erro do Back-end (caso passe no front mas falhe no back)
       else if(error.response && error.response.status === 422) {
         const newErrors = {}
-        for(let e of error.response.data) {
-          newErrors[e.path[0]] = e.message
+        if (Array.isArray(error.response.data)) {
+          for(let e of error.response.data) {
+            newErrors[e.path[0]] = e.message
+          }
         }
         setState({ ...state, inputErrors: newErrors })
-        notify('O formulário contém erros (verif. back-end).', 'error')
+        notify('Dados inválidos (recusado pelo servidor).', 'error')
       }
-      // Outros erros
       else {
         notify(error.message, 'error')
       }
     } finally {
-      // Desliga a tela de espera
       showWaiting(false)
     }
   }
 
-  /*
-    useEffect() que é executado apenas uma vez, no carregamento do componente.
-    Verifica se a rota tem parâmetro. Caso tenha, significa que estamos vindo
-    do componente de listagem por meio do botão de editar, e precisamos chamar
-    a função loadData() para buscar no back-end os dados do cliente a ser editado
-  */
   React.useEffect(() => {
     loadData()
   }, [])
@@ -160,27 +152,17 @@ try {
   async function loadData() {
     showWaiting(true)
     try {
-
       let car = { ...formDefaults }, customers = []
-
-      // Busca a lista de clientes para preencher o combo de escolha
-      // do cliente que comprou o carro
       customers = await myfetch.get('/customers')
 
-      // Se houver parâmetro na rota, precisamos buscar o carro para
-      // ser editado
       if(params.id) {
-
         car = await myfetch.get(`/cars/${params.id}`)
-
-        // Converte o formato de data armazenado no banco de dados
-        // para o formato reconhecido pelo componente DatePicker
-        
         if(car.selling_date) {
           car.selling_date = parseISO(car.selling_date)
         }
+        // Ajuste para booleano correto no checkbox
+        if(car.imported) setImported(true)
       }
-
       setState({ ...state, car, customers })
 
     } catch (error) {
@@ -192,22 +174,15 @@ try {
   }
 
   async function handleBackButtonClick() {
-    if (
-      formModified &&
-      !(await askForConfirmation(
-        'Há informações não salvas. Deseja realmente sair?'
-      ))
-    )
-      return; // Sai da função sem fazer nada
-
-    // Navega de volta para a página de listagem
+    if (formModified && !(await askForConfirmation('Há informações não salvas. Deseja realmente sair?')))
+      return; 
     navigate('..', { relative: 'path', replace: true })
   }
 
   function handleKeyDown(event) {
     if(event.key === 'Delete') {
       const stateCopy = {...state}
-      stateCopy.car.customer_id = null
+      stateCopy.car.customer_id = null // Define como null para limpar
       setState(stateCopy)
     }
   }
@@ -233,7 +208,7 @@ try {
             value={car.brand}
             onChange={handleFieldChange}
             helperText={inputErrors?.brand}
-            error={inputErrors?.brand}
+            error={!!inputErrors?.brand}
           />
           <TextField
             name='model'
@@ -244,20 +219,20 @@ try {
             value={car.model}
             onChange={handleFieldChange}
             helperText={inputErrors?.model}
-            error={inputErrors?.model}
+            error={!!inputErrors?.model}
           />
 
           <TextField
             name='color'
-            label='Color'
+            label='Cor'
             variant='filled'
             required
             fullWidth
             value={car.color}
             onChange={handleFieldChange}
             select
-            helperText={inputErrors?.state}
-            error={inputErrors?.state}
+            helperText={inputErrors?.color} 
+            error={!!inputErrors?.color}
           >
             {colors.map((s) => (
               <MenuItem key={s.value} value={s.value}>
@@ -276,7 +251,7 @@ try {
             value={car.year_manufacture}
             onChange={handleFieldChange}
             helperText={inputErrors?.year_manufacture}
-            error={inputErrors?.year_manufacture}
+            error={!!inputErrors?.year_manufacture}
           >
             {years.map((year) => (
               <MenuItem key={year} value={year}>
@@ -285,7 +260,7 @@ try {
             ))}
           </TextField>
 
-          <div class="MuiFormControl-root">
+          <div className="MuiFormControl-root">
             <FormControlLabel
               control={
                 <Checkbox
@@ -304,23 +279,23 @@ try {
           <InputMask
             mask='AAA-9$99'
             formatChars={plateMaskFormatChars}
-            maskChar=' '
+            maskChar={null}  
             value={car.plates}
             onChange={handleFieldChange}
           >
-            {() => (
+            {(inputProps) => ( 
               <TextField
+                {...inputProps} 
                 name='plates'
                 label='Placa'
                 variant='filled'
                 required
                 fullWidth
-                helperText={inputErrors?.phone}
-                error={inputErrors?.phone}
+                helperText={inputErrors?.plates}
+                error={!!inputErrors?.plates}
               />
             )}
           </InputMask>
-
           <LocalizationProvider
             dateAdapter={AdapterDateFns}
             adapterLocale={ptBR}
@@ -338,7 +313,7 @@ try {
                   variant: 'filled',
                   fullWidth: true,
                   helperText: inputErrors?.selling_date,
-                  error: inputErrors?.selling_date,
+                  error: !!inputErrors?.selling_date,
                 },
               }}
             />
@@ -353,7 +328,7 @@ try {
             value={car.selling_price}
             onChange={handleFieldChange}
             helperText={inputErrors?.selling_price}
-            error={inputErrors?.selling_price}
+            error={!!inputErrors?.selling_price}
           />
 
           <TextField
@@ -367,7 +342,7 @@ try {
             onKeyDown={handleKeyDown}
             select
             helperText={inputErrors?.customer_id || 'Tecle DEL para limpar o cliente'}
-            error={inputErrors?.customer_id}
+            error={!!inputErrors?.customer_id}
           >
             {customers.map((c) => (
               <MenuItem key={c.id} value={c.id}>
@@ -390,10 +365,6 @@ try {
               Voltar
             </Button>
           </Box>
-
-          {/*<Box sx={{ fontFamily: 'monospace', display: 'flex', width: '100%' }}>
-            {JSON.stringify(car)}
-          </Box>*/}
         </form>
       </Box>
     </>
