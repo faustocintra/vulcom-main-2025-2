@@ -29,7 +29,6 @@ const limiter = rateLimit({
  limit: 20               // Máximo de 20 requisições
 })
 
-
 app.use(limiter)
 
 /*********** ROTAS DA API **************/
