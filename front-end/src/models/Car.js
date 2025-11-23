@@ -44,7 +44,8 @@ const Car = z.object({
 
   plates:
     z.string()
-    .length(8, { message: 'A placa deve ter, exatamente, 8 caracteres.' }),
+    .length(8, { message: 'A placa deve ter, exatamente, 8 caracteres.' })
+    .refine(val => !val.includes(' '), { message: 'Preencha a placa completamente.' }),
 
   selling_date:
     z.coerce.date()

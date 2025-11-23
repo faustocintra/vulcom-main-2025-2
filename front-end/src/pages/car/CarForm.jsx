@@ -52,33 +52,10 @@ export default function CarForm() {
   const { notify, Notification } = useNotification()
   const { showWaiting, Waiting } = useWaiting()
 
-  const colors = [
-    { value: 'AMARELO', label: 'AMARELO' },
-    { value: 'AZUL', label: 'AZUL' },
-    { value: 'BRANCO', label: 'BRANCO' },
-    { value: 'CINZA', label: 'CINZA' },
-    { value: 'DOURADO', label: 'DOURADO' },
-    { value: 'LARANJA', label: 'LARANJA' },
-    { value: 'MARROM', label: 'MARROM' },
-    { value: 'PRATA', label: 'PRATA' },
-    { value: 'PRETO', label: 'PRETO' },
-    { value: 'ROSA', label: 'ROSA' },
-    { value: 'ROXO', label: 'ROXO' },
-    { value: 'VERDE', label: 'VERDE' },
-    { value: 'VERMELHO', label: 'VERMELHO' },
-  ]
-
   const plateMaskFormatChars = {
     9: '[0-9]', // somente dígitos
     $: '[0-9A-J]', // dígito de 0 a 9 ou uma letra de A a J.
     A: '[A-Z]', //  letra maiúscula de A a Z.
-  }
-
-  const currentYear = new Date().getFullYear()
-  const minYear = 1960
-  const years = []
-  for (let year = currentYear; year >= minYear; year--) {
-    years.push(year)
   }
 
   function handleFieldChange(event) {
@@ -236,22 +213,15 @@ export default function CarForm() {
 
           <TextField
             name='color'
-            label='Color'
+            label='Cor'
             variant='filled'
             required
             fullWidth
             value={car.color}
             onChange={handleFieldChange}
-            select
             helperText={inputErrors?.color}
             error={!!inputErrors?.color}
-          >
-            {colors.map((s) => (
-              <MenuItem key={s.value} value={s.value}>
-                {s.label}
-              </MenuItem>
-            ))}
-          </TextField>
+          />
 
           <TextField
             name='year_manufacture'
@@ -259,18 +229,12 @@ export default function CarForm() {
             variant='filled'
             required
             fullWidth
-            select
+            type='number'
             value={car.year_manufacture}
             onChange={handleFieldChange}
             helperText={inputErrors?.year_manufacture}
             error={!!inputErrors?.year_manufacture}
-          >
-            {years.map((year) => (
-              <MenuItem key={year} value={year}>
-                {year}
-              </MenuItem>
-            ))}
-          </TextField>
+          />
 
           <FormControlLabel
             control={
@@ -291,8 +255,9 @@ export default function CarForm() {
             value={car.plates}
             onChange={handleFieldChange}
           >
-            {() => (
+            {inputProps => (
               <TextField
+                {...inputProps}
                 name='plates'
                 label='Placa'
                 variant='filled'
