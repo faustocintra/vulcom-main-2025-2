@@ -64,7 +64,7 @@ const Car = z.object({
       { message: 'O preço de venda deve estar entre R$5.000 e R$5.000.000.' }
     ),
 
-  customer_id: z.string().optional().nullable()
+  customer_id: z.coerce.number().nullable().optional()
 })
 
 export default Car

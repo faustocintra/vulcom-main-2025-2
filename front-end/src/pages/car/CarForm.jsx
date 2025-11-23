@@ -116,7 +116,7 @@ async function handleFormSubmit(event) {
     } catch (error) {
       if (error instanceof ZodError) {
         const inputErrors = {}
-        error.errors.forEach((err) => {
+        error.issues.forEach((err) => {
           inputErrors[err.path[0]] = err.message
         })
         setState({ ...state, inputErrors })
